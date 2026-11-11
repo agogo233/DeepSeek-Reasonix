@@ -34,6 +34,16 @@ func (s *Server) deleteSession(w http.ResponseWriter, r *http.Request) {
 	if name == "" {
 		name = sessionID
 	}
+	// The serve web UI names a canonical row by its SessionID in `name` alone,
+	// so a delete that required sessionId would report success while leaving
+	// the canonical directory in place. Accept the name as a compatibility
+	// identity for exclusive-session controllers, the same fallback /resume
+	// uses; a colliding legacy transcript is still preferred below.
+	if sessionID == "" && name != "" {
+		if identity, ok := s.ctl().(control.IdentityLifecycle); ok && identity.UsesExclusiveSession() {
+			sessionID = name
+		}
+	}
 	if name == "" {
 		http.Error(w, "name required", http.StatusBadRequest)
 		return

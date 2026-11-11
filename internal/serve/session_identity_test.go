@@ -588,6 +588,65 @@ func (f *migratedDeleteFixture) deleteCanonical(id string) int {
 	return resp.StatusCode
 }
 
+// deleteCanonicalByName issues a /delete-session request the way the serve web
+// UI does: only `name`, omitting `sessionId`. A handler that requires
+// sessionId would report success while leaving the canonical directory in
+// place, so this mirrors the /resume identity fallback.
+func (f *migratedDeleteFixture) deleteCanonicalByName(id string) int {
+	f.t.Helper()
+	resp, err := http.Post(f.url+"/delete-session", "application/json", strings.NewReader(`{"name":"`+id+`"}`))
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode
+}
+
+// canonicalRowVisible reports whether /sessions still lists a canonical row
+// for the given id after a delete that claimed success.
+func (f *migratedDeleteFixture) canonicalRowVisible(id string) bool {
+	f.t.Helper()
+	resp, err := http.Get(f.url + "/sessions")
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		f.t.Fatalf("GET /sessions = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+	var rows []sessionListEntry
+	if err := json.NewDecoder(resp.Body).Decode(&rows); err != nil {
+		f.t.Fatal(err)
+	}
+	for _, row := range rows {
+		if row.SessionID == id {
+			return true
+		}
+	}
+	return false
+}
+
+// TestDeleteCanonicalSessionByNameOnly guards the serve web UI delete flow:
+// the UI names a canonical session by its SessionID in `name` alone, so a
+// handler that routes only on sessionId would return 204 while leaving the
+// session listed. The name-only request must remove the canonical directory
+// and stop listing the row, mirroring the /resume identity fallback.
+func TestDeleteCanonicalSessionByNameOnly(t *testing.T) {
+	f := newMigratedDeleteFixture(t, "canonical")
+	if !f.canonicalExists("canonical") {
+		t.Fatal("fixture: canonical session not staged")
+	}
+	if code := f.deleteCanonicalByName("canonical"); code != http.StatusNoContent {
+		t.Fatalf("delete by name = %d, want %d", code, http.StatusNoContent)
+	}
+	if f.canonicalExists("canonical") {
+		t.Fatal("canonical session directory still exists after name-only delete")
+	}
+	if f.canonicalRowVisible("canonical") {
+		t.Fatal("/sessions still lists the canonical row after name-only delete")
+	}
+}
+
 func (f *migratedDeleteFixture) canonicalExists(id string) bool {
 	_, err := os.Stat(filepath.Join(f.v4Root, id))
 	return err == nil
