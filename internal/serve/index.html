@@ -698,6 +698,7 @@ const __T = {
     'tool_blocked': 'Blocked',
     'tool_not_executed': 'not executed',
     'submit': 'Submit',
+    'answer_failed': 'Failed to submit answer',
     'approval_title': 'Approval Required',
     'allow': 'Allow',
     'session': 'Allow for session',
@@ -852,6 +853,7 @@ const __T = {
     'tool_blocked': '已阻止',
     'tool_not_executed': '未执行',
     'submit': '提交',
+    'answer_failed': '提交回答失败',
     'approval_title': '需要批准',
     'allow': '允许',
     'session': '本会话允许',
@@ -1442,20 +1444,41 @@ function showApproval(a) {
 function showAsk(ask) {
   const d=el('div','ask');
   const cleanup=()=>{pendingPrompts=pendingPrompts.filter(f=>f!==cleanup);d.remove();};
-  ask.questions.forEach(q=>{
+  // One selection set per question, indexed by question position (not id):
+  // extension form fields may reuse/omit keys, while position is always stable.
+  const selections=ask.questions.map(()=>new Set());
+  ask.questions.forEach((q,qi)=>{
     const qDiv=el('div'); qDiv.appendChild(el('div','ask__prompt',q.prompt));
-    const opts=el('div','ask__options'); const selected=new Set();
+    const opts=el('div','ask__options'); const selected=selections[qi];
     q.options.forEach((o,i)=>{
       const opt=el('button','ask__opt'); opt.innerHTML='<div><div class="ask__opt-label">'+escHtml(o.label)+'</div>'+(o.description?'<div class="ask__opt-desc">'+escHtml(o.description)+'</div>':'')+'</div>';
       opt.onclick=()=>{if(q.multi){selected.has(i)?selected.delete(i):selected.add(i);opt.classList.toggle('ask__opt--selected',selected.has(i));}else{selected.clear();selected.add(i);opts.querySelectorAll('.ask__opt').forEach((o,j)=>o.classList.toggle('ask__opt--selected',j===i));}};
       opts.appendChild(opt);
     });
-    qDiv.appendChild(opts);
-    const submit=el('button','ask__submit',__('submit')); submit.disabled=true;
-    opts.addEventListener('click',()=>{submit.disabled=selected.size===0;});
-    submit.onclick=()=>{const answers=ask.questions.map(qq=>({questionId:qq.id,selected:Array.from(selected).map(i=>qq.options[i].label)}));post('/answer',{id:ask.id,answers});cleanup();};
-    qDiv.appendChild(submit); d.appendChild(qDiv);
+    qDiv.appendChild(opts); d.appendChild(qDiv);
   });
+  // A single submit answers the whole batch at once, matching the controller's
+  // one-shot Ask contract. A question without options (a free-text extension
+  // field) cannot be satisfied by a click, so it counts as already answered.
+  const submit=el('button','ask__submit',__('submit')); submit.disabled=true;
+  const refresh=()=>{submit.disabled=!ask.questions.every((q,qi)=>q.options.length===0||selections[qi].size>0);};
+  d.addEventListener('click',refresh);
+  submit.onclick=e=>{
+    // The click would otherwise bubble to d and let refresh re-enable the button
+    // while the request is in flight, breaking duplicate-submit protection.
+    e.stopPropagation();
+    submit.disabled=true;
+    const answers=ask.questions.map((q,qi)=>({questionId:q.id,selected:Array.from(selections[qi]).map(i=>q.options[i].label)}));
+    post('/answer',{id:ask.id,answers}).then(r=>{
+      if(r.ok){cleanup();return;}
+      // A failed ledger write leaves the prompt pending and retryable; keep the
+      // card so the user can resubmit instead of stranding the question.
+      submit.disabled=false;
+      showNotice(__('answer_failed')+' (HTTP '+r.status+')','warn');
+    });
+  };
+  d.appendChild(submit);
+  refresh();
   log.appendChild(d);scrollDown(true);
   pendingPrompts.push(cleanup);
 }
