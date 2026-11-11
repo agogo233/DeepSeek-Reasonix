@@ -169,6 +169,14 @@ For advanced CLI usage and configuration, see the **[CLI reference](./docs/CLI.m
 **[Guide](./docs/GUIDE.md)**, and
 **[configuration paths](./docs/CONFIG_PATHS.md)**.
 
+## Environment variables
+
+- `REASONIX_LOG_LEVEL` — process log level: `debug`, `info` (default), `warn`,
+  or `error`. Set it in your shell (`export REASONIX_LOG_LEVEL=debug`) or in
+  Reasonix's global `.env` to see every HTTP request `serve` handles; by
+  default only refused requests are logged. An invalid value warns once and
+  keeps `info`. The workspace `.env` does not apply here.
+
 ## Documentation
 
 - **Getting started:** [Guide](./docs/GUIDE.md) · [CLI reference](./docs/CLI.md) ·

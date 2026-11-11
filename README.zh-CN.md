@@ -158,6 +158,13 @@ CLI 进阶用法和详细配置见 **[CLI 命令参考](./docs/CLI.zh-CN.md)**�
 **[指南](./docs/GUIDE.zh-CN.md)** 和
 **[配置路径](./docs/CONFIG_PATHS.zh-CN.md)**。
 
+## 环境变量
+
+- `REASONIX_LOG_LEVEL` — 进程日志级别：`debug`、`info`（默认）、`warn` 或
+  `error`。在 shell 中设置（`export REASONIX_LOG_LEVEL=debug`），或写入
+  Reasonix 的全局 `.env`，即可看到 `serve` 处理的每一条 HTTP 请求；默认只
+  记录被拒绝的请求。无效值会提示一次并按 `info` 处理。工作区 `.env` 不适用于此变量。
+
 ## 文档
 
 - **开始使用：** [指南](./docs/GUIDE.zh-CN.md) ·

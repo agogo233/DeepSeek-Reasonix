@@ -77,6 +77,9 @@ func RunWithBuildInfo(args []string, info BuildInfo) int {
 	// Drain accepted records and fence the projection worker before returning.
 	// An embedded Run may outlive one invocation and remove its CacheDir.
 	defer closeCLIUsageCatalogs()
+	// Pick the log level before any command writes a record, so an env or
+	// global .env choice reaches every subcommand's early logging.
+	applyLogLevelEnv()
 	// Pick the UI language up front so even pre-config paths (the first-run
 	// welcome banner) come through localized. Env-only first; if a config
 	// exists and pins a language, that wins.

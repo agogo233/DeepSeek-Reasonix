@@ -856,13 +856,19 @@ func corsMiddleware(next http.Handler, origin string) http.Handler {
 	})
 }
 
-// logMiddleware logs each request's method, path, and status.
+// logMiddleware logs each request's method, path, and status. Successful
+// requests are logged at debug so a running server stays quiet; a refused
+// request keeps its info line, which is the one worth seeing.
 func logMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(rw, r)
-		slog.Info("serve: request",
+		level := slog.LevelInfo
+		if rw.status < http.StatusBadRequest {
+			level = slog.LevelDebug
+		}
+		slog.Log(r.Context(), level, "serve: request",
 			"method", r.Method,
 			"path", r.URL.Path,
 			"status", rw.status,

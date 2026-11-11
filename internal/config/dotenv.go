@@ -123,6 +123,18 @@ func loadDotEnvFileAs(path string, source CredentialSource) {
 	}
 }
 
+// UserCredentialValue reads one KEY from Reasonix's global .env with the same
+// decoding the credential loader applies. The bool is false when the file or
+// the key is absent, so callers can fall back to a default.
+func UserCredentialValue(key string) (string, bool) {
+	file, ok := readDotEnvFile(UserCredentialsPath())
+	if !ok {
+		return "", false
+	}
+	val, ok := file.Values[key]
+	return val, ok
+}
+
 func readDotEnvFile(path string) (dotEnvFile, bool) {
 	raw, err := readCredentialFile(path)
 	if err != nil {

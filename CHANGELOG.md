@@ -24,6 +24,11 @@ branch.
 
 ### Added
 
+- **`REASONIX_LOG_LEVEL` (debug/info/warn/error)** sets the process log level
+  from the environment or Reasonix's global `.env`. The `serve` request log now
+  records successful requests at `debug` and refused ones at `info`, so a
+  running server is quiet by default and a single env var flips the detail.
+
 - **Discover Reasonix Studio (Desktop 1.x):** a one-time introduction on an idle
   stable desktop launch, plus a permanent entry in **Settings → About**. Opens
   the official Studio download page and explains coexistence and data limits;
