@@ -1,9 +1,13 @@
 name: Build CLI (linux amd64 + windows amd64)
 
-# 手动云编译入口：GitHub Actions 页面点 "Run workflow" 即可。
-# Linux 与 Windows 各自在原生 runner 上构建单二进制并打包上传为 artifact，
-# 默认创建/更新一个 latest Release（可通过 publish 输入关闭）。
+# 推送到 main-v2 时自动构建（仅构建与上传 artifact，不发布 Release）；
+# 也可在 GitHub Actions 页面点 "Run workflow" 手动构建，默认创建/更新一个
+# latest Release（可通过 publish 输入关闭）。
+# Linux 与 Windows 各自在原生 runner 上构建单二进制并打包上传为 artifact。
 on:
+  push:
+    branches:
+      - main-v2
   workflow_dispatch:
     inputs:
       ref:
