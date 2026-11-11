@@ -24,7 +24,7 @@ func sessionOrSessionsCommand(command string, args []string) int {
 
 func sessionsCommand(args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: reasonix sessions <reindex|diagnose|cleanup> [--dir PATH] [--json]")
+		fmt.Fprintln(os.Stderr, "usage: reasonix sessions <reindex|diagnose|cleanup|delete> [--dir PATH] [--json]")
 		return 2
 	}
 	switch args[0] {
@@ -32,9 +32,11 @@ func sessionsCommand(args []string) int {
 		return sessionsRecoveryCommand(args[1:], false)
 	case "cleanup":
 		return sessionsRecoveryCommand(args[1:], true)
+	case "delete":
+		return sessionsDeleteCommand(args[1:])
 	case "reindex":
 	default:
-		fmt.Fprintln(os.Stderr, "usage: reasonix sessions <reindex|diagnose|cleanup> [--dir PATH] [--json]")
+		fmt.Fprintln(os.Stderr, "usage: reasonix sessions <reindex|diagnose|cleanup|delete> [--dir PATH] [--json]")
 		return 2
 	}
 	fs := flag.NewFlagSet("sessions reindex", flag.ContinueOnError)
