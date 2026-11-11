@@ -1,0 +1,178 @@
+# Standalone Windows build CI for fork / mirror repositories.
+#
+# This is the Windows leg of release-studio.yml (build + package only), pulled
+# out of the release line so a fork or mirror can produce Windows artifacts
+# without the Certum signing, GitHub release, R2 mirror or npm/Homebrew lines.
+# The other workflows under this directory are parked as *.yml.disabled, so
+# this is the only active workflow in a fork/mirror.
+#
+# It builds the SPA, the Go kernel (cmd/reasonix-studio-host) and the Electron
+# bundle, checks every PE image is the architecture the package is named for,
+# and packages the NSIS installer and the portable zip. Nothing is signed and
+# nothing is published: the two artifacts are uploaded to the run.
+#
+# The version is real, not a placeholder: on a studio-v* tag it is the tag's
+# version; otherwise git describe resolves the nearest studio-v* tag plus the
+# commit distance, with a commit-based fallback when no tag is reachable.
+name: Studio Windows CI
+
+on:
+  push:
+    branches: ['**']
+    tags: ['studio-v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: studio-windows-ci-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build Windows (${{ matrix.arch }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # arch is the release vocabulary (GOARCH); ebarch is electron-builder's
+          # spelling of the same architecture (x64 / amd64), and unpacked is the
+          # directory electron-builder leaves the bundle in.
+          - arch: amd64
+            ebarch: x64
+            unpacked: win-unpacked
+    env:
+      REASONIX_GOARCH: ${{ matrix.arch }}
+    steps:
+      # Real-time scanning inspects every file the job writes, and packaging
+      # writes a quarter of a gigabyte twice. The runner is thrown away after
+      # the job; if the image refuses the switch the build is only slower.
+      - name: Stop Defender scanning the build
+        continue-on-error: true
+        shell: pwsh
+        run: Set-MpPreference -DisableRealtimeMonitoring $true
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          # The version is resolved from git history, so the tags have to be
+          # present: fetch-depth 0 with fetch-tags fetches the whole history.
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          version: 10
+          run_install: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: |
+            desktop/frontend-next/pnpm-lock.yaml
+            desktop/electron/pnpm-lock.yaml
+
+      # A real version: on a studio-v* tag it is exactly the tag's version;
+      # otherwise the nearest reachable studio-v* tag plus the commit distance
+      # (vX.Y.Z-N-gSHA), falling back to a commit-based version when no tag is
+      # reachable (a shallow fork, a PR merge commit).
+      - name: Resolve version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/studio-v* ]]; then
+            v="${GITHUB_REF#refs/tags/studio-}"
+            # A studio tag must be semver (with an optional prerelease): a
+            # malformed tag would otherwise ship a version no updater parses.
+            if [[ ! "$v" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-([0-9A-Za-z-]+)(\.[0-9A-Za-z-]+)*)?$ ]]; then
+              echo "::error::studio tag must be studio-vMAJOR.MINOR.PATCH[-PRERELEASE], got: $GITHUB_REF"
+              exit 1
+            fi
+          else
+            # [0-9] so git describe never matches a non-semver tag like
+            # studio-verify; a short SHA fallback cannot carry the prefix.
+            d="$(git describe --tags --match 'studio-v[0-9]*' --always)"
+            if [[ "$d" == studio-v* ]]; then
+              v="${d#studio-}"
+            else
+              v="v0.0.0-ci.$(git rev-parse --short=7 HEAD)"
+            fi
+          fi
+          echo "REASONIX_VERSION=$v" >> "$GITHUB_ENV"
+          echo "ELECTRON_VERSION=${v#v}" >> "$GITHUB_ENV"
+          echo "resolved version $v"
+
+      - name: Build the SPA
+        working-directory: desktop/frontend-next
+        shell: bash
+        run: pnpm install --frozen-lockfile && pnpm build
+
+      # The kernel the shell speaks to. It is a main-module binary and stays
+      # CGO-free, so no platform needs a toolchain for it.
+      - name: Build the kernel
+        working-directory: desktop/electron
+        shell: bash
+        env:
+          REASONIX_VERSION: ${{ env.REASONIX_VERSION }}
+        run: pnpm install --frozen-lockfile && pnpm run build:host
+
+      # The bundle, before anything is packaged around it. The version has to be
+      # injected: app.getVersion() reads package.json, which carries 0.0.0 in the
+      # tree, and a shell that states 0.0.0 ranks behind every published release
+      # and offers itself an update on every launch.
+      - name: Build the bundle
+        working-directory: desktop/electron
+        shell: bash
+        run: |
+          pnpm exec electron-builder --dir --${{ matrix.ebarch }} \
+            -c.extraMetadata.version="$ELECTRON_VERSION"
+
+      # An emulated x64 program runs on ARM64 Windows, so a bundle that starts
+      # proves nothing about its architecture: every PE image in it has to be
+      # built for the architecture the package is named for.
+      - name: Every PE image is built for the package's architecture
+        shell: bash
+        run: node desktop/electron/packaging/pe.js "dist/${{ matrix.unpacked }}" "${{ matrix.arch }}"
+
+      # The installer and the portable archive are built at once, the zip from
+      # its own copy: NSIS writes elevate.exe into the tree it packs, and a zip
+      # read beside that would hold it or not by timing.
+      - name: Package Windows
+        working-directory: desktop/electron
+        shell: bash
+        run: |
+          rm -rf ../../zip-src ../../dist-zip
+          cp -r ../../dist/${{ matrix.unpacked }} ../../zip-src
+          pnpm exec electron-builder --prepackaged ../../zip-src --win zip --${{ matrix.ebarch }} \
+            -c.extraMetadata.version="$ELECTRON_VERSION" -c.directories.output=../../dist-zip &
+          zip_pid=$!
+          pnpm exec electron-builder --prepackaged ../../dist/${{ matrix.unpacked }} --win nsis --${{ matrix.ebarch }} \
+            -c.extraMetadata.version="$ELECTRON_VERSION"
+          wait "$zip_pid"
+          mv ../../dist-zip/ReasonixStudio-windows-${{ matrix.arch }}.zip ../../dist/
+
+      # The installer and the portable archive are separate artifacts, each by
+      # its exact name: the zip is electron-builder's own output, not a second
+      # layer around it.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: studio-windows-${{ matrix.arch }}-installer
+          path: dist/ReasonixStudio-windows-${{ matrix.arch }}-installer.exe
+          if-no-files-found: error
+          retention-days: 7
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: studio-windows-${{ matrix.arch }}-portable
+          path: dist/ReasonixStudio-windows-${{ matrix.arch }}.zip
+          if-no-files-found: error
+          retention-days: 7
