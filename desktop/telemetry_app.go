@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"time"
 
 	"reasonix/internal/config"
@@ -81,29 +80,8 @@ func installID() (string, error) {
 }
 
 func (a *App) sendStartupPing() {
-	if version == "dev" {
-		return
-	}
-	cfg, err := config.Load()
-	if err != nil || !cfg.DesktopTelemetry() {
-		return
-	}
-	id, err := installID()
-	if err != nil {
-		return
-	}
-	c, err := httpClient()
-	if err != nil {
-		return
-	}
-	device := collectDeviceInfo()
-	_ = postStartupPing(a.bootContext(), c, pingEndpoint, startupPing{
-		InstallID: id, Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH, Channel: channel,
-		OSVersion: device.OSVersion, OSBuild: device.OSBuild, OSRevision: device.OSRevision,
-		DistroID: device.DistroID, DistroVersion: device.DistroVersion,
-		KernelVersion: device.KernelVersion, SessionType: device.SessionType,
-		RuntimeEngine: desktopRendererEngine,
-	})
+	// Fork-level privacy opt-out: never send the anonymous launch ping.
+	_ = a
 }
 
 func postStartupPing(ctx context.Context, c *http.Client, endpoint string, p startupPing) error {

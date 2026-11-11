@@ -1,14 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -631,64 +628,6 @@ func flatten(c counters) []metricCounter {
 // clears it on success or folds it back to retry next launch. Runs at launch
 // (mirroring the ping) so the current session's counts ship next time.
 func (a *App) flushMetrics() {
-	if version == "dev" {
-		return
-	}
-	cfg, err := config.Load()
-	if err != nil || !cfg.DesktopMetrics() {
-		return
-	}
-	path := filepath.Join(config.MemoryUserDir(), metricsPendingFile)
-	temp := path + ".sending"
-	metricsPendingMu.Lock()
-	if os.Rename(path, temp) != nil {
-		metricsPendingMu.Unlock()
-		return // nothing pending
-	}
-	metricsPendingMu.Unlock()
-	flat := flatten(readCounters(temp))
-	device := collectDeviceInfo()
-	payload := metricsPayload{
-		Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH, Channel: channel,
-		OSBuild: device.OSBuild, OSRevision: device.OSRevision,
-		DistroID: device.DistroID, DistroVersion: device.DistroVersion,
-		KernelVersion: device.KernelVersion, SessionType: device.SessionType,
-		RuntimeEngine: desktopRendererEngine, Counters: flat,
-	}
-	if id, err := installID(); err == nil {
-		payload.InstallID = id
-	}
-	if len(flat) == 0 || a.postMetrics(payload) {
-		_ = os.Remove(temp)
-		return
-	}
-	metricsPendingMu.Lock()
-	pending := readCounters(path)
-	pending.merge(readCounters(temp))
-	writeCounters(path, pending)
-	metricsPendingMu.Unlock()
-	_ = os.Remove(temp)
-}
-
-func (a *App) postMetrics(p metricsPayload) bool {
-	body, err := json.Marshal(p)
-	if err != nil {
-		return false
-	}
-	c, err := httpClient()
-	if err != nil {
-		return false
-	}
-	c.Timeout = metricsPostTimeout
-	req, err := http.NewRequestWithContext(a.bootContext(), http.MethodPost, metricsEndpoint, bytes.NewReader(body))
-	if err != nil {
-		return false
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.Do(req)
-	if err != nil {
-		return false
-	}
-	resp.Body.Close()
-	return resp.StatusCode < 300
+	// Fork-level privacy opt-out: never POST the aggregate metrics payload.
+	_ = a
 }

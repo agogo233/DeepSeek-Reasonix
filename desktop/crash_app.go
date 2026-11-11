@@ -1,19 +1,14 @@
 package main
 
 import (
-	"bytes"
-	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"regexp"
 	"runtime"
 	"strings"
-
-	"reasonix/internal/config"
 )
 
 // crash_app.go is the crash/feedback/performance reporting surface. Frontend
@@ -341,51 +336,9 @@ func crashReportFromDetail(kind, detail string) (crashReport, error) {
 }
 
 func (a *App) ReportCrash(kind, detail string) error {
-	r, err := crashReportFromDetail(kind, detail)
-	if err != nil {
-		return err
-	}
-	c, err := httpClient()
-	if err != nil {
-		return err
-	}
-	if err := ensureCrashIdentity(&r); err != nil {
-		return err
-	}
-	if r.Kind == "crash" || r.Kind == "exception" {
-		r.Diagnostics = a.currentCrashDiagnostics("confirmed", "crash")
-		r.Diagnostics.ProcessRole = "renderer"
-		if r.BuildCommit != "" {
-			r.Diagnostics.SubjectBuildCommit = r.BuildCommit
-		}
-	}
-	return postCrashReport(a.reqCtx(), c, crashEndpoint, r)
-}
-
-func postCrashReport(ctx context.Context, c *http.Client, endpoint string, r crashReport) error {
-	// Pending crash files deliberately omit the anonymous installation id. Add
-	// it only at send time, under the same desktop.telemetry opt-in as pings.
-	if cfg, err := config.Load(); err == nil && cfg.DesktopTelemetry() {
-		if id, idErr := installID(); idErr == nil {
-			r.InstallID = id
-		}
-	}
-	body, err := json.Marshal(r)
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		return fmt.Errorf("crash endpoint returned %s", resp.Status)
-	}
+	// Fork-level privacy opt-out: never upload crash reports.
+	_ = a
+	_ = kind
+	_ = detail
 	return nil
 }

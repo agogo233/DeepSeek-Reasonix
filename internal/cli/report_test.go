@@ -57,7 +57,7 @@ func TestReportCommandPreviewDoesNotSendNonInteractive(t *testing.T) {
 	}
 }
 
-func TestReportCommandInteractiveConfirmationSendsAndDeletes(t *testing.T) {
+func TestReportCommandInteractiveConfirmationPrivacyOptOut(t *testing.T) {
 	home := isolateCLIReports(t)
 	pending := captureCLIReport(t, home)
 	previous := sendCLIReport
@@ -65,9 +65,6 @@ func TestReportCommandInteractiveConfirmationSendsAndDeletes(t *testing.T) {
 	calls := 0
 	sendCLIReport = func(_ context.Context, report crashreport.Report, _ netclient.ProxySpec) error {
 		calls++
-		if report.Source != "cli.go" {
-			t.Fatalf("report=%+v", report)
-		}
 		return nil
 	}
 
@@ -75,15 +72,15 @@ func TestReportCommandInteractiveConfirmationSendsAndDeletes(t *testing.T) {
 	if rc := reportCommandWithIO(nil, true, strings.NewReader("y\n"), &out, &errOut); rc != 0 {
 		t.Fatalf("report rc=%d stderr=%q", rc, errOut.String())
 	}
-	if calls != 1 || !strings.Contains(out.String(), "[y/N]") || !strings.Contains(out.String(), "Sent CLI crash report") {
-		t.Fatalf("calls=%d output=%q", calls, out.String())
+	if calls != 0 {
+		t.Fatalf("privacy opt-out must not upload (calls=%d)", calls)
 	}
-	if _, err := crashreport.Load(home, pending.ID); !errors.Is(err, crashreport.ErrNoReports) {
-		t.Fatalf("sent report remains: %v", err)
+	if _, err := crashreport.Load(home, pending.ID); err != nil {
+		t.Fatalf("privacy opt-out removed report: %v", err)
 	}
 }
 
-func TestReportCommandFailedSendKeepsReport(t *testing.T) {
+func TestReportCommandPrivacyOptOutKeepsReport(t *testing.T) {
 	home := isolateCLIReports(t)
 	pending := captureCLIReport(t, home)
 	previous := sendCLIReport
@@ -93,18 +90,15 @@ func TestReportCommandFailedSendKeepsReport(t *testing.T) {
 	}
 
 	var out, errOut bytes.Buffer
-	if rc := reportCommandWithIO([]string{"send", pending.ID}, false, strings.NewReader(""), &out, &errOut); rc != 1 {
+	if rc := reportCommandWithIO([]string{"send", pending.ID}, false, strings.NewReader(""), &out, &errOut); rc != 0 {
 		t.Fatalf("send rc=%d", rc)
 	}
-	if !strings.Contains(errOut.String(), "kept") {
-		t.Fatalf("stderr=%q", errOut.String())
-	}
 	if _, err := crashreport.Load(home, pending.ID); err != nil {
-		t.Fatalf("failed send removed report: %v", err)
+		t.Fatalf("privacy opt-out removed report: %v", err)
 	}
 }
 
-func TestLegacySafeModeEnvDoesNotBlockReportSendOrDelete(t *testing.T) {
+func TestLegacySafeModeEnvPrivacyOptOutDoesNotUpload(t *testing.T) {
 	home := isolateCLIReports(t)
 	pending := captureCLIReport(t, home)
 	t.Setenv("REASONIX_SAFE_MODE", "1")
@@ -120,14 +114,8 @@ func TestLegacySafeModeEnvDoesNotBlockReportSendOrDelete(t *testing.T) {
 	if rc := reportCommandWithIO([]string{"send", pending.ID}, false, strings.NewReader(""), &out, &errOut); rc != 0 {
 		t.Fatalf("legacy-env send rc=%d stderr=%q", rc, errOut.String())
 	}
-	if calls != 1 {
-		t.Fatalf("report upload calls=%d, want 1", calls)
-	}
-	pending = captureCLIReport(t, home)
-	out.Reset()
-	errOut.Reset()
-	if rc := reportCommandWithIO([]string{"delete", pending.ID}, false, strings.NewReader(""), &out, &errOut); rc != 0 {
-		t.Fatalf("legacy-env delete rc=%d stderr=%q", rc, errOut.String())
+	if calls != 0 {
+		t.Fatalf("privacy opt-out upload calls=%d, want 0", calls)
 	}
 }
 

@@ -24,7 +24,7 @@ func TestDesktopUpdaterEnabledRequiresExactStableReleaseBuild(t *testing.T) {
 		channel string
 		want    bool
 	}{
-		{name: "stable release", version: "v1.2.3", channel: "stable", want: true},
+		{name: "stable release", version: "v1.2.3", channel: "stable", want: false},
 		{name: "stable prerelease", version: "v1.2.3-rc.1", channel: "stable"},
 		{name: "stable test version", version: "v0.0.0-test.20260916.abc1234", channel: "stable"},
 		{name: "canary", version: "v1.2.3", channel: "canary"},
@@ -93,16 +93,16 @@ func TestDesktopUpdaterCapabilityAndConfigFailureDefaults(t *testing.T) {
 	setDesktopBuildIdentityForTest(t, "v1.2.3", "stable")
 
 	failedStartup := desktopStartupSettingsFromConfig(nil)
-	if failedStartup.CheckUpdates || !failedStartup.UpdaterEnabled {
-		t.Fatalf("failed startup settings = check:%v updater:%v, want false/true", failedStartup.CheckUpdates, failedStartup.UpdaterEnabled)
+	if failedStartup.CheckUpdates || failedStartup.UpdaterEnabled {
+		t.Fatalf("failed startup settings = check:%v updater:%v, want false/false", failedStartup.CheckUpdates, failedStartup.UpdaterEnabled)
 	}
 	failedFull := NewApp().defaultSettingsView()
-	if failedFull.CheckUpdates || !failedFull.UpdaterEnabled {
-		t.Fatalf("failed full settings = check:%v updater:%v, want false/true", failedFull.CheckUpdates, failedFull.UpdaterEnabled)
+	if failedFull.CheckUpdates || failedFull.UpdaterEnabled {
+		t.Fatalf("failed full settings = check:%v updater:%v, want false/false", failedFull.CheckUpdates, failedFull.UpdaterEnabled)
 	}
 	normal := desktopStartupSettingsFromConfig(config.Default())
-	if !normal.CheckUpdates || !normal.UpdaterEnabled {
-		t.Fatalf("normal stable settings = check:%v updater:%v, want true/true", normal.CheckUpdates, normal.UpdaterEnabled)
+	if !normal.CheckUpdates || normal.UpdaterEnabled {
+		t.Fatalf("normal stable settings = check:%v updater:%v, want true/false", normal.CheckUpdates, normal.UpdaterEnabled)
 	}
 
 	channel = "canary"

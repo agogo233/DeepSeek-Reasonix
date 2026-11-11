@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -15,7 +14,6 @@ import (
 
 	"reasonix/internal/config"
 	"reasonix/internal/fileutil"
-	filelock "reasonix/internal/identitylock"
 	"reasonix/internal/session"
 )
 
@@ -278,73 +276,10 @@ func (a *App) goRemoteTabSafe(site string, fn func()) {
 // clears it. Runs at launch alongside the ping; honours the telemetry opt-out by
 // dropping the file unsent.
 func (a *App) flushPendingCrash() {
+	// Fork-level privacy opt-out: drop pending crashes without sending.
 	if version == "dev" {
 		return
 	}
-	paths := pendingCrashPaths()
-	if len(paths) == 0 {
-		return
-	}
-	cfg, err := config.Load()
-	if err != nil {
-		return
-	}
-	if !cfg.DesktopTelemetry() {
-		removeAllPendingCrashes()
-		return
-	}
-	c, err := httpClient()
-	if err != nil {
-		return
-	}
-	lockContext, cancel := context.WithTimeout(a.bootContext(), 3*time.Second)
-	defer cancel()
-	ledgerPath := crashLedgerPath()
-	if os.MkdirAll(filepath.Dir(ledgerPath), 0o700) != nil {
-		return
-	}
-	release, err := filelock.AcquireWithExternalTimeout(lockContext, ledgerPath+".lock", 2*time.Second)
-	if err != nil {
-		return
-	}
-	defer release()
-	ledger := loadCrashLedger(ledgerPath, time.Now().UTC())
-	for _, path := range paths {
-		body, readErr := readFileUTF8(path)
-		if readErr != nil {
-			continue
-		}
-		var r crashReport
-		if json.Unmarshal(body, &r) != nil {
-			_ = os.Remove(path)
-			continue
-		}
-		if r.SchemaVersion > currentCrashSchema {
-			continue
-		}
-		identityChanged := r.EventID == "" || r.DedupKey == ""
-		if ensureCrashIdentity(&r) != nil {
-			break
-		}
-		if identityChanged {
-			updated, marshalErr := json.Marshal(r)
-			if marshalErr != nil || fileutil.AtomicWriteFile(path, updated, 0o600) != nil {
-				break
-			}
-		}
-		key := crashLedgerKey(r)
-		if _, alreadySent := ledger.Entries[key]; alreadySent {
-			_ = os.Remove(path)
-			continue
-		}
-		if postCrashReport(a.bootContext(), c, crashEndpoint, r) != nil {
-			break
-		}
-		ledger.Entries[key] = time.Now().UTC().Format(time.RFC3339Nano)
-		if saveCrashLedger(ledgerPath, ledger) != nil {
-			break
-		}
-		_ = os.Remove(path)
-	}
-	_ = os.Remove(pendingCrashDir())
+	removeAllPendingCrashes()
+	_ = a
 }

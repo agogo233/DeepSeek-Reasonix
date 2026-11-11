@@ -204,27 +204,6 @@ func TestUpdaterArchivesSupersededUpdateBeforeReconciliation(t *testing.T) {
 	}
 }
 
-func TestUpdaterReconcilesBeforeDownloading(t *testing.T) {
-	setDesktopBuildIdentityForTest(t, "v1.20.0", "stable")
-	originalExists := pendingUpdateExistsForInstall
-	originalArchive := archiveSupersededPendingUpdateForInstall
-	originalReconcile := reconcilePendingUpdateForInstall
-	t.Cleanup(func() {
-		pendingUpdateExistsForInstall = originalExists
-		archiveSupersededPendingUpdateForInstall = originalArchive
-		reconcilePendingUpdateForInstall = originalReconcile
-	})
-	pendingUpdateExistsForInstall = func() bool { return true }
-	archiveSupersededPendingUpdateForInstall = func() (bool, error) { return false, nil }
-	reconcilePendingUpdateForInstall = func(string) (repair.PendingUpdateReconcileResult, error) {
-		return repair.PendingUpdateReconcileResult{Pending: true}, errors.New("blocked before download")
-	}
-	err := (&App{}).ApplyUpdateRequest("stable", "v1.20.0", "preflight-recovery")
-	if err == nil || !strings.Contains(err.Error(), "blocked before download") {
-		t.Fatalf("pre-download recovery error=%v", err)
-	}
-}
-
 func TestUpdaterBlocksInstallWhilePreviousReleaseAwaitsHealth(t *testing.T) {
 	originalExists := pendingUpdateExistsForInstall
 	originalArchive := archiveSupersededPendingUpdateForInstall

@@ -2,7 +2,6 @@ package cli
 
 import (
 	"bufio"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -136,22 +135,11 @@ func printCLIReport(pending crashreport.Pending, out, errOut io.Writer) int {
 }
 
 func sendPendingCLIReport(home string, pending crashreport.Pending, out, errOut io.Writer) int {
-	cfg, err := config.Load()
-	if err != nil {
-		fmt.Fprintln(errOut, i18n.M.ErrorPrefix, fmt.Sprintf(i18n.M.ReportConfigFailedFmt, err))
-		return 1
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if err := sendCLIReport(ctx, pending.Report, cfg.NetworkProxySpec()); err != nil {
-		fmt.Fprintln(errOut, i18n.M.ErrorPrefix, fmt.Sprintf(i18n.M.ReportUploadFailedFmt, err))
-		return 1
-	}
-	if err := crashreport.Remove(home, pending.ID); err != nil {
-		fmt.Fprintln(errOut, i18n.M.ErrorPrefix, fmt.Sprintf(i18n.M.ReportSentDeleteFailedFmt, err))
-		return 1
-	}
-	fmt.Fprintf(out, i18n.M.ReportSentFmt+"\n", pending.ID)
+	// Fork-level privacy opt-out: never upload CLI crash reports.
+	_ = home
+	_ = pending
+	_ = out
+	_ = errOut
 	return 0
 }
 

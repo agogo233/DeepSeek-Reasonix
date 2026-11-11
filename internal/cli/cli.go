@@ -2696,7 +2696,11 @@ func configCompactRatioUsage() {
 }
 
 func startCLITelemetry(cfg *config.Config, opts telemetry.Options) *telemetry.Reporter {
-	return startCLITelemetryWithIO(cfg, opts, os.Stdin, os.Stdout, os.Stderr)
+	// Fork-level privacy opt-out: never start the CLI telemetry reporter. The
+	// Reporter's Wrap/RecordRecovery tolerate a nil receiver.
+	_ = cfg
+	_ = opts
+	return nil
 }
 
 func startCLITelemetryWithIO(cfg *config.Config, opts telemetry.Options, in io.Reader, out, errOut io.Writer) *telemetry.Reporter {
