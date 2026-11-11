@@ -1,0 +1,174 @@
+name: Build CLI (linux amd64 + windows amd64)
+
+# 手动云编译入口：GitHub Actions 页面点 "Run workflow" 即可。
+# Linux 与 Windows 各自在原生 runner 上构建单二进制并打包上传为 artifact，
+# 默认创建/更新一个 latest Release（可通过 publish 输入关闭）。
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch or tag to build (empty = current default branch)"
+        required: false
+        default: ""
+        type: string
+      version:
+        description: "Version baked into the binary (empty = git describe)"
+        required: false
+        default: ""
+        type: string
+      publish:
+        description: "Create/update the latest GitHub Release"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    name: Build Linux amd64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Resolve version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ -n "$INPUT_VERSION" ]; then
+            echo "value=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
+          elif git describe --tags >/dev/null 2>&1; then
+            echo "value=$(git describe --tags)" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build linux/amd64
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          mkdir -p dist/packaged
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath \
+            -ldflags "-s -w -X main.version=$VERSION" \
+            -o dist/reasonix-linux-amd64 ./cmd/reasonix
+
+      - name: Package archives and checksums
+        run: |
+          tar -czf dist/packaged/reasonix-linux-amd64.tar.gz -C dist reasonix-linux-amd64
+          (
+            cd dist/packaged
+            sha256sum reasonix-linux-amd64.tar.gz > SHA256SUMS
+          )
+          ls -l dist/packaged
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: reasonix-cli-linux-amd64
+          path: dist/packaged/*
+          if-no-files-found: error
+
+  build-windows:
+    name: Build Windows amd64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ -n "$INPUT_VERSION" ]; then
+            echo "value=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
+          elif git describe --tags >/dev/null 2>&1; then
+            echo "value=$(git describe --tags)" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build windows/amd64
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          New-Item -ItemType Directory -Force -Path dist\packaged
+          $env:CGO_ENABLED = "0"
+          $env:GOOS = "windows"
+          $env:GOARCH = "amd64"
+          go build -trimpath `
+            -ldflags "-s -w -X main.version=$env:VERSION" `
+            -o dist\reasonix-windows-amd64.exe ./cmd/reasonix
+
+      - name: Package archives and checksums
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist\reasonix-windows-amd64.exe -DestinationPath dist\packaged\reasonix-windows-amd64.zip
+          Get-FileHash dist\packaged\reasonix-windows-amd64.zip -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  reasonix-windows-amd64.zip" } |
+            Out-File dist\packaged\SHA256SUMS -Encoding ascii
+          Get-ChildItem dist\packaged | Select-Object Name, Length
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: reasonix-cli-windows-amd64
+          path: dist/packaged/*
+          if-no-files-found: error
+
+  release:
+    name: Create Release (latest)
+    needs: [build-linux, build-windows]
+    if: inputs.publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: reasonix-cli-linux-amd64
+          path: dist/linux
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: reasonix-cli-windows-amd64
+          path: dist/windows
+
+      - name: Extract binaries
+        run: |
+          tar -xzf dist/linux/reasonix-linux-amd64.tar.gz -C dist
+          unzip -o dist/windows/reasonix-windows-amd64.zip -d dist
+          ls -l dist/reasonix-linux-amd64 dist/reasonix-windows-amd64.exe
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest Release
+          files: |
+            dist/reasonix-linux-amd64
+            dist/reasonix-windows-amd64.exe
+          prerelease: false
+          generate_release_notes: true
