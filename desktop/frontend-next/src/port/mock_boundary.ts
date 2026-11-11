@@ -523,7 +523,7 @@ export class MockBoundary extends MockShell {
     return { backup, problem: null };
   }
 
-  private mode: UpdateMode = "notify";
+  private mode: UpdateMode = "manual";
   async updateMode(): Promise<UpdateMode> { return this.mode; }
   async setUpdateMode(mode: UpdateMode): Promise<UpdateMode> { this.mode = mode; return mode; }
 }

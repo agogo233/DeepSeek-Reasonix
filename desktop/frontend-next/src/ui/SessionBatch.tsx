@@ -58,20 +58,41 @@ export function SessionBatch({ hub, selection, selected, displayed, onSelect, on
     const failed = new Set<string>();
     let firstError: unknown;
     let removed = false;
-    for (const row of selected) {
-      try {
-        if (row.runtimeId && liveIds([row.runtimeId]).length > 0) throw new Error(t("session.selected_sessions_are_running_stop"));
-        if (action === "delete") {
+    if (action === "delete") {
+      // Preflight every row first: a running conversation, or one whose pane
+      // refuses to close, stays in the failed set, and only the clean rows go
+      // to the kernel in one request. The kernel validates every path before
+      // erasing any, so a batch either lands whole or the caller re-previews.
+      const paths: string[] = [];
+      for (const row of selected) {
+        try {
+          if (row.runtimeId && liveIds([row.runtimeId]).length > 0) throw new Error(t("session.selected_sessions_are_running_stop"));
           if (row.runtimeId) await onClose([row.runtimeId]);
-          await hub.removeSession(row.path);
-          clearDraftForSession("", row.path);
-          removed = true;
-        } else {
-          await onArchive(row.path, action === "archive", row.runtimeId);
+          paths.push(row.path);
+        } catch (e) {
+          failed.add(row.path);
+          firstError ??= e;
         }
-      } catch (e) {
-        failed.add(row.path);
-        firstError ??= e;
+      }
+      if (paths.length > 0) {
+        try {
+          await hub.removeSessions(paths);
+          for (const path of paths) clearDraftForSession("", path);
+          removed = true;
+        } catch (e) {
+          for (const path of paths) failed.add(path);
+          firstError ??= e;
+        }
+      }
+    } else {
+      for (const row of selected) {
+        try {
+          if (row.runtimeId && liveIds([row.runtimeId]).length > 0) throw new Error(t("session.selected_sessions_are_running_stop"));
+          await onArchive(row.path, action === "archive", row.runtimeId);
+        } catch (e) {
+          failed.add(row.path);
+          firstError ??= e;
+        }
       }
     }
     if (removed) {

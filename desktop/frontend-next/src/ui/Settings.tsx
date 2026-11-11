@@ -569,7 +569,7 @@ export function Settings({ hub, onError, port, networkPort, localWorkspacePort, 
               signedIn={!!acct?.signedIn && !!acct.user} onIsolate={() => run("isolate", () => port.isolateWorkspace())} onChanged={onChanged} onRecovered={() => { onChanged(); onSessionsRecovered?.(); }} />
           )}
 
-          {at === "common" && <CommonSettings port={port} homePort={homePort} theme={theme} onTheme={onTheme} look={look} onLook={onLook} />}
+          {at === "common" && <CommonSettings port={port} homePort={homePort} hub={hub} theme={theme} onTheme={onTheme} look={look} onLook={onLook} />}
 
           {at === "appearance" && (
             <Appearance port={homePort} theme={theme} onTheme={onTheme} contrast={contrast} onContrast={onContrast} weight={weight} onWeight={onWeight} reloadThemes={reloadThemes} look={look} onLook={onLook} />

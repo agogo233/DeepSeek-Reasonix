@@ -36,6 +36,7 @@ func (h *Hub) registerTreeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /tree/workspaces/move", h.moveWorkspace)
 	mux.HandleFunc("POST /tree/sessions/remove", h.removeSession)
 	mux.HandleFunc("POST /tree/sessions/remove-many", h.removeSessions)
+	mux.HandleFunc("POST /tree/sessions/sweep-preview", h.sweepSessions)
 	mux.HandleFunc("POST /tree/sessions/archive", h.archiveSession)
 	mux.HandleFunc("POST /tree/sessions/pin", h.pinSession)
 	mux.HandleFunc("POST /tree/sessions/viewed", h.markSessionViewed)

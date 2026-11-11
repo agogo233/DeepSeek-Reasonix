@@ -40,10 +40,10 @@ func postUpdateMode(t *testing.T, base, body string) (int, string) {
 	return resp.StatusCode, out.Code
 }
 
-func TestUpdateModeRoutesDefaultToNotifyAndWriteTheUsersFile(t *testing.T) {
+func TestUpdateModeRoutesDefaultToManualAndWriteTheUsersFile(t *testing.T) {
 	srv := studioServer(t, &update.Install{Version: "2.10.0"})
-	if got := updateMode(t, srv.URL); got != "notify" {
-		t.Fatalf("a fresh install reads %q, want notify", got)
+	if got := updateMode(t, srv.URL); got != "manual" {
+		t.Fatalf("a fresh install reads %q, want manual", got)
 	}
 	if status, _ := postUpdateMode(t, srv.URL, `{"mode":"manual"}`); status != http.StatusOK {
 		t.Fatalf("POST manual = %d", status)
@@ -65,7 +65,7 @@ func TestUpdateModeRouteRefusesAModeItDoesNotOfferByCode(t *testing.T) {
 	if status != http.StatusBadRequest || code != codeUpdateModeInvalid {
 		t.Fatalf("POST download = %d %q, want 400 %q", status, code, codeUpdateModeInvalid)
 	}
-	if got := updateMode(t, srv.URL); got != "notify" {
+	if got := updateMode(t, srv.URL); got != "manual" {
 		t.Fatalf("a refused mode left %q behind", got)
 	}
 }

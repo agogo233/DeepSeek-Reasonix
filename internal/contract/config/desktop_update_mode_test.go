@@ -7,16 +7,16 @@ import (
 	"testing"
 )
 
-func TestUpdateModeDefaultsToNotifyAndOnlyTheThreeNamedModesAreChosen(t *testing.T) {
-	for value, want := range map[string]string{"": "notify", "manual": "manual", " manual ": "manual", "notify": "notify", " notify ": "notify", "download": "download", " download ": "download", "Download": "notify", "NOTIFY": "notify", "on": "notify", "auto": "notify", "install": "notify"} {
+func TestUpdateModeDefaultsToManualAndOnlyTheThreeNamedModesAreChosen(t *testing.T) {
+	for value, want := range map[string]string{"": "manual", "manual": "manual", " manual ": "manual", "notify": "notify", " notify ": "notify", "download": "download", " download ": "download", "Download": "manual", "NOTIFY": "manual", "on": "manual", "auto": "manual", "install": "manual"} {
 		cfg := &Config{}
 		cfg.Desktop.UpdateMode = value
 		if got := cfg.DesktopUpdateMode(); got != want {
 			t.Errorf("update_mode %q reads as %q, want %q", value, got, want)
 		}
 	}
-	if (*Config)(nil).DesktopUpdateMode() != "notify" {
-		t.Fatal("a missing config must read as the default, notify")
+	if (*Config)(nil).DesktopUpdateMode() != "manual" {
+		t.Fatal("a missing config must read as the default, manual")
 	}
 }
 
@@ -51,7 +51,7 @@ func TestUpdateModeSurvivesARenderAndAnUnchosenModeWritesNothing(t *testing.T) {
 func TestAProjectFileCannotChooseTheUpdateMode(t *testing.T) {
 	for _, mode := range []string{"manual", "download"} {
 		cfg, _ := loadScoped(t, "", "[desktop]\nupdate_mode = \""+mode+"\"\n")
-		if cfg.DesktopUpdateMode() != "notify" || !slices.Contains(ignoredKeys(cfg), "desktop.update_mode") {
+		if cfg.DesktopUpdateMode() != "manual" || !slices.Contains(ignoredKeys(cfg), "desktop.update_mode") {
 			t.Fatalf("project %s: mode %q, ignored %v; a project file must not choose it", mode, cfg.DesktopUpdateMode(), ignoredKeys(cfg))
 		}
 	}

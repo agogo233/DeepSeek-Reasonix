@@ -17,7 +17,7 @@ const sessions: TreeSession[] = [
 ];
 
 function draw(rows = sessions, scope: "all" | "archived" = "all", folded = new Set<string>()) {
-  const hub = { removeSession: vi.fn().mockResolvedValue(undefined) };
+  const hub = { removeSession: vi.fn().mockResolvedValue(undefined), removeSessions: vi.fn().mockResolvedValue(undefined) };
   const onArchive = vi.fn().mockResolvedValue(undefined);
   const onClose = vi.fn().mockResolvedValue(undefined);
   const onOpen = vi.fn().mockResolvedValue(undefined);
@@ -124,18 +124,17 @@ it("confirms the selected names before deletion and lets Escape cancel without a
   await userEvent.click(screen.getByRole("button", { name: "删除所选会话" }));
   const question = screen.getByRole("alertdialog", { name: "删除 2 个会话？" });
   expect(within(question).getByText("Alpha、Beta")).toBeTruthy();
-  expect(pane.hub.removeSession).not.toHaveBeenCalled();
+  expect(pane.hub.removeSessions).not.toHaveBeenCalled();
   await userEvent.keyboard("{Escape}");
   expect(screen.queryByRole("alertdialog")).toBeNull();
   expect(document.activeElement).toBe(screen.getByRole("button", { name: "删除所选会话" }));
   expect(pane.onClose).not.toHaveBeenCalled();
   await userEvent.click(screen.getByRole("button", { name: "删除所选会话" }));
   await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "删除" }));
-  await waitFor(() => expect(pane.hub.removeSession).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(pane.hub.removeSessions).toHaveBeenCalledTimes(1));
   expect(pane.onClose).toHaveBeenCalledWith(["r1"]);
-  expect(pane.onClose.mock.invocationCallOrder[0]).toBeLessThan(pane.hub.removeSession.mock.invocationCallOrder[0]!);
-  expect(pane.hub.removeSession).toHaveBeenNthCalledWith(1, "/sessions/a.jsonl");
-  expect(pane.hub.removeSession).toHaveBeenNthCalledWith(2, "/sessions/b.jsonl");
+  expect(pane.onClose.mock.invocationCallOrder[0]).toBeLessThan(pane.hub.removeSessions.mock.invocationCallOrder[0]!);
+  expect(pane.hub.removeSessions).toHaveBeenCalledWith(["/sessions/a.jsonl", "/sessions/b.jsonl"]);
   expect(pane.reload).toHaveBeenCalledTimes(1);
 });
 
@@ -187,8 +186,8 @@ it("keeps a session when closing its pane is refused and still deletes the other
   await userEvent.click(screen.getByRole("button", { name: "删除所选会话" }));
   await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "删除" }));
   await waitFor(() => expect(pane.onError).toHaveBeenCalledWith(failure));
-  expect(pane.hub.removeSession).toHaveBeenCalledTimes(1);
-  expect(pane.hub.removeSession).toHaveBeenCalledWith("/sessions/b.jsonl");
+  expect(pane.hub.removeSessions).toHaveBeenCalledTimes(1);
+  expect(pane.hub.removeSessions).toHaveBeenCalledWith(["/sessions/b.jsonl"]);
   expect(screen.getByText("已选 1 个会话")).toBeTruthy();
   expect(readDraft(kept)).toBe("keep the refused session");
   expect(readDraft(removed)).toBe("");

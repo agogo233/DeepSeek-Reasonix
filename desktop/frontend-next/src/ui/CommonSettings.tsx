@@ -1,11 +1,13 @@
 import { useCallback } from "react";
 import type { AgentPort, Appearance as Look } from "../port/port";
+import type { HubPort } from "../port/hub";
 import { STORAGE as LANG_KEY, t } from "../i18n";
 import { DefaultMode } from "./DefaultMode";
 import { Notifications } from "./Notifications";
 import { SendShortcut } from "./SendShortcut";
 import { ThemeModeRow } from "./ThemeModeRow";
 import { UpdateMode } from "./UpdateMode";
+import { SessionSweep } from "./SessionSweep";
 import { SectionCard } from "./SectionCard";
 import { SettingRow } from "./SettingRow";
 import { ChangedSettings } from "./ChangedSettings";
@@ -19,13 +21,14 @@ const LANGS: [string, string][] = [
 interface Props {
   port: AgentPort;
   homePort: AgentPort;
+  hub: HubPort;
   theme: string;
   onTheme: (id: string) => void;
   look: Look;
   onLook: (look: Look) => void;
 }
 
-export function CommonSettings({ port, homePort, theme, onTheme, look, onLook }: Props) {
+export function CommonSettings({ port, homePort, hub, theme, onTheme, look, onLook }: Props) {
   const setLang = useCallback(
     (next: string) => {
       localStorage.setItem(LANG_KEY, next);
@@ -40,6 +43,7 @@ export function CommonSettings({ port, homePort, theme, onTheme, look, onLook }:
       <SectionCard title={t("common.start")}>
         <DefaultMode port={port} />
         <UpdateMode port={homePort} />
+        <SessionSweep hub={hub} />
       </SectionCard>
       <SectionCard title={t("settings.input_and_reminders")}>
         <SettingRow id="language" title={t("common.language")} desc={t("settings.interface_language")}>

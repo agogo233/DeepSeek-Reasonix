@@ -1,5 +1,5 @@
 import type { AgentPort } from "./port";
-import type { HistorySearch, HubPort, RuntimeView, TreeSession, TreeWindow, TreeWorkspace } from "./hub";
+import type { HistorySearch, HubPort, RuntimeView, SessionSweepReport, SessionSweepRequest, TreeSession, TreeWindow, TreeWorkspace } from "./hub";
 import type { RemoteHost, RemoteListing, RemoteProbe } from "./remote";
 import type { PhoneAction, PhoneList, PhoneView, ShareStatus } from "./share";
 import { MockPort } from "./mock";
@@ -298,6 +298,21 @@ export class MockHub implements HubPort {
 
   removeSession(_path: string) {
     return Promise.resolve();
+  }
+
+  removeSessions(_paths: string[]) {
+    return Promise.resolve();
+  }
+
+  sweepSessions(_req: SessionSweepRequest) {
+    return Promise.resolve<SessionSweepReport>({
+      matched: 0,
+      rows: [],
+      pinned: 0,
+      running: 0,
+      recovered: 0,
+      errors: [],
+    });
   }
 
   removeRemoteSession(_host: string, _path: string) {

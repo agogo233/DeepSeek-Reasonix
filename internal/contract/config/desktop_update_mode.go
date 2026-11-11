@@ -19,15 +19,15 @@ const (
 // ErrUpdateModeInvalid is a mode this build does not offer.
 var ErrUpdateModeInvalid = errors.New("config: unknown update mode")
 
-// DesktopUpdateMode is how the desktop behaves about new releases: manual does
-// nothing on its own, notify (the default) reads the version catalog in the
+// DesktopUpdateMode is how the desktop behaves about new releases: manual (the
+// default) does nothing on its own, notify reads the version catalog in the
 // background and says so when something newer is published, download also
 // leaves that release downloaded and verified. None of them installs or restarts.
 func (c *Config) DesktopUpdateMode() string {
 	if m := c.chosenUpdateMode(); m != "" {
 		return m
 	}
-	return UpdateModeNotify
+	return UpdateModeManual
 }
 
 // chosenUpdateMode is the mode the user picked, or "" while none is on file, so

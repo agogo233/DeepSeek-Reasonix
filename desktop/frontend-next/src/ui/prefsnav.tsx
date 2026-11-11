@@ -225,6 +225,7 @@ export const SETTINGS: SettingEntry[] = [
   { section: "storage", anchor: "backup", title: "data.cloud_backup", scope: "account", apply: "immediate", keywords: ["备份", "恢复", "换机", "同步", "导出"] },
   { section: "versions", anchor: "versions", title: "common.version", scope: "machine", apply: "immediate", keywords: ["更新", "升级"] },
   { section: "common", anchor: "update-mode", title: "about.update_mode", scope: "machine", apply: "immediate", keywords: ["自动更新", "检查更新", "更新提醒", "后台", "update", "auto update", "notify", "自动下载", "download"] },
+  { section: "common", anchor: "session-sweep", title: "about.sweep_title", scope: "machine", apply: "immediate", keywords: ["清理", "清理旧会话", "删除会话", "闲置", "空会话", "sweep", "cleanup", "delete conversations", "idle"] },
   { section: "versions", anchor: "logs", title: "about.logs_and_abnormal_exit_records", scope: "machine", apply: "none", keywords: ["日志", "崩溃", "闪退", "异常退出", "log", "logs", "crash", "路径"] },
   { section: "versions", anchor: "community", title: "common.community_and_contributors", scope: "machine", apply: "none", keywords: ["社区", "交流群", "QQ", "加群", "二维码", "discord", "贡献者", "contributors", "community"] },
   { section: "versions", anchor: "sponsor", title: "about.support_the_project", scope: "machine", apply: "none", keywords: ["捐助", "支付宝", "微信支付", "收款码", "paypal", "donate", "sponsor", "support", "alipay", "wechat"] },

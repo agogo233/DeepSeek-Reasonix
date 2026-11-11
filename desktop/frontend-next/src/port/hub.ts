@@ -71,6 +71,37 @@ export interface TreeSession {
 
 export type LegacySkipReason = "too_large" | "unreadable_format" | "schema_unsupported" | "permission" | "corrupt" | "copy_failed" | "no_project";
 
+// What a cleanup preview asks for. All sweeps every conversation, Empty matches
+// the ones that hold no user message, and OlderThanDays matches the ones idle at
+// least that long; All is offered on its own because a bare filter list is
+// refused by the kernel.
+export interface SessionSweepRequest {
+  olderThanDays: number;
+  empty: boolean;
+  all: boolean;
+  includeArchived: boolean;
+}
+
+// One conversation a cleanup would remove, as previewed.
+export interface SessionSweepRow {
+  path: string;
+  title: string;
+  lastActive: string;
+  archived: boolean;
+  turns: number;
+}
+
+// The kernel's preview answer. Nothing is deleted by this call; the caller
+// confirms and drives the removal through removeSessions.
+export interface SessionSweepReport {
+  matched: number;
+  rows: SessionSweepRow[];
+  pinned: number;
+  running: number;
+  recovered: number;
+  errors: string[];
+}
+
 // A 1.x session the import could not read. The entry at `path` was neither
 // moved nor deleted.
 export interface LegacySkip {
@@ -221,6 +252,10 @@ export interface HubPort extends SharePort {
   /** Drop a project before another remembered one, or at the end when `before` is empty. */
   placeWorkspace(path: string, before: string): Promise<void>;
   removeSession(path: string): Promise<void>;
+  /** Drop several conversations in one kernel request; the kernel validates every path before erasing any. */
+  removeSessions(paths: string[]): Promise<void>;
+  /** Preview which conversations a cleanup would remove, deleting nothing. */
+  sweepSessions(req: SessionSweepRequest): Promise<SessionSweepReport>;
   /** The conversation moves into the named project; originalRemoved is false when the copy arrived but the original could not be taken away. */
   moveSessionTo(path: string, target: string): Promise<{ path: string; originalRemoved: boolean }>;
   archiveSession(path: string, archived: boolean, host?: string): Promise<void>;
@@ -433,6 +468,14 @@ export class SseHub implements HubPort {
 
   async removeSession(path: string) {
     await this.post<void>("/tree/sessions/remove", { path });
+  }
+
+  async removeSessions(paths: string[]) {
+    await this.post<void>("/tree/sessions/remove-many", { paths });
+  }
+
+  async sweepSessions(req: SessionSweepRequest) {
+    return this.post<SessionSweepReport>("/tree/sessions/sweep-preview", req);
   }
 
   async archiveSession(path: string, archived: boolean, host?: string) {
