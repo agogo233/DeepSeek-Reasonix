@@ -1459,7 +1459,18 @@ function dangerousBashCommand(command) {
 // key listener would resolve it on a later unrelated keypress.
 let pendingPrompts=[];
 function clearPendingPrompts(){pendingPrompts.splice(0).forEach(fn=>fn());}
+// Same-page SSE reconnects re-emit every pending prompt; a replay must
+// replace the card it re-answers (same prompt id), never stack a duplicate.
+let promptCardCleanups={};
+function replaceStalePromptCard(id){
+  if(!id)return;
+  const prev=promptCardCleanups[id];
+  if(!prev)return;
+  delete promptCardCleanups[id];
+  prev();
+}
 function showApproval(a) {
+  replaceStalePromptCard(a.id);
   const d=el('div','approval');
   const prefix = a.tool === 'bash' ? bashCommandPrefix(a.subject) : '';
   const hasPrefix = prefix !== '';
@@ -1478,8 +1489,9 @@ function showApproval(a) {
   // Approval cards never steal focus from the composer or an active IME. The
   // advertised keys remain available after the user explicitly focuses a card
   // action; otherwise typing continues to edit the draft.
-  const cleanup=()=>{pendingPrompts=pendingPrompts.filter(f=>f!==cleanup);d.remove();document.removeEventListener('keydown',onkey);};
+  const cleanup=()=>{pendingPrompts=pendingPrompts.filter(f=>f!==cleanup);d.remove();document.removeEventListener('keydown',onkey);delete promptCardCleanups[a.id];};
   pendingPrompts.push(cleanup);
+  if(a.id)promptCardCleanups[a.id]=cleanup;
   const resolve=payload=>{post('/approve',Object.assign({id:a.id,generation:a.generation||0,permissionRevision:a.permissionRevision||0},payload));cleanup();};
   d.querySelectorAll('.approval__btn').forEach(btn=>{btn.onclick=()=>resolve({allow:btn.dataset.allow==='true',session:btn.dataset.session==='true',scope:btn.dataset.scope||''});});
   // A consumed shortcut must preventDefault: cleanup refocuses the composer
@@ -1491,8 +1503,9 @@ function showApproval(a) {
 
 // ── ask ──
 function showAsk(ask) {
+  replaceStalePromptCard(ask.id);
   const d=el('div','ask');
-  const cleanup=()=>{pendingPrompts=pendingPrompts.filter(f=>f!==cleanup);d.remove();};
+  const cleanup=()=>{pendingPrompts=pendingPrompts.filter(f=>f!==cleanup);d.remove();delete promptCardCleanups[ask.id];};
   // One selection set per question, indexed by question position (not id):
   // extension form fields may reuse/omit keys, while position is always stable.
   const selections=ask.questions.map(()=>new Set());
@@ -1530,6 +1543,7 @@ function showAsk(ask) {
   refresh();
   log.appendChild(d);scrollDown(true);
   pendingPrompts.push(cleanup);
+  if(ask.id)promptCardCleanups[ask.id]=cleanup;
 }
 
 // ── compaction ──
@@ -1800,6 +1814,9 @@ function renderHistoryMessages(ms){
       renderToolResult({id,name:m.toolName||'tool',output:m.content||''});showSearchHistoryNotice(m.toolName,m.content);
     }
   });
+  // The SSE prompt replay can land before /history renders; keep pending
+  // prompt cards below the transcript so they stay in view.
+  log.querySelectorAll('.ask,.approval').forEach(c=>log.appendChild(c));
   currentMsg=null;currentText=null;currentReasoning=null; scrollDown(true); updateActionAvailability(); return true;
 }
 fetch('/history').then(r=>r.json()).then(msgs=>{renderHistoryMessages(msgs);fetchTodos();}).catch(()=>{});
