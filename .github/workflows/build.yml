@@ -1,6 +1,6 @@
 name: Build CLI (linux amd64 + windows amd64)
 
-# 推送到 main-v2 时自动构建（仅构建与上传 artifact，不发布 Release）；
+# 推送到 main-v2 时自动构建并创建/更新一个 latest Release；
 # 也可在 GitHub Actions 页面点 "Run workflow" 手动构建，默认创建/更新一个
 # latest Release（可通过 publish 输入关闭）。
 # Linux 与 Windows 各自在原生 runner 上构建单二进制并打包上传为 artifact。
@@ -142,7 +142,7 @@ jobs:
   release:
     name: Create Release (latest)
     needs: [build-linux, build-windows]
-    if: inputs.publish
+    if: github.event_name == 'push' || inputs.publish
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
