@@ -166,13 +166,22 @@ jobs:
           unzip -o dist/windows/reasonix-windows-amd64.zip -d dist
           ls -l dist/reasonix-linux-amd64 dist/reasonix-windows-amd64.exe
 
+      - name: Generate changelog
+        id: changelog
+        run: |
+          {
+            echo 'notes<<EOF'
+            git log --oneline -20
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: Latest Release
+          body: ${{ steps.changelog.outputs.notes }}
           files: |
             dist/reasonix-linux-amd64
             dist/reasonix-windows-amd64.exe
           prerelease: false
-          generate_release_notes: true
