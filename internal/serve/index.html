@@ -382,6 +382,55 @@ input,textarea{font:inherit;color:inherit}
 .dialog-btn{height:30px;padding:0 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg-2);color:var(--fg-2);font-size:12px}
 .dialog-btn:hover{border-color:var(--border-strong);color:var(--fg)}
 .dialog-btn--danger{background:var(--danger-soft);border-color:transparent;color:var(--danger)}
+
+/* ── markdown rendering (assistant messages) ── */
+.msg__md{line-height:1.7;word-break:break-word;white-space:normal}
+.msg__md>*:first-child{margin-top:0}
+.msg__md>*:last-child{margin-bottom:0}
+.msg__md h1,.msg__md h2,.msg__md h3{font-family:var(--heading);font-weight:600;line-height:1.3;margin:14px 0 8px}
+.msg__md h1{font-size:1.3em}
+.msg__md h2{font-size:1.18em}
+.msg__md h3{font-size:1.06em}
+.msg__md p{margin:0 0 8px}
+.msg__md ul,.msg__md ol{margin:0 0 8px;padding-left:22px}
+.msg__md li{margin:2px 0}
+.msg__md li>ul,.msg__md li>ol{margin:2px 0 0}
+.msg__md blockquote{border-left:2px solid var(--border-strong);margin:8px 0;padding:2px 12px;color:var(--fg-2)}
+.msg__md hr{border:none;border-top:1px solid var(--border);margin:12px 0}
+.msg__md a{color:var(--accent);text-decoration:none}
+.msg__md a:hover{text-decoration:underline}
+.msg__md code{background:var(--bg-2);border:1px solid var(--border);padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:.9em}
+.md-table-wrap{overflow-x:auto;margin:8px 0}
+.msg__md table{border-collapse:collapse;font-size:13px}
+.msg__md th,.msg__md td{border:1px solid var(--border);padding:5px 10px;text-align:left}
+.msg__md th{background:var(--bg-2);font-weight:600}
+.msg__md img{max-width:100%;border-radius:var(--radius);display:block;margin:8px 0}
+.msg__md pre{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:8px 0}
+.md-code-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 6px 4px 10px;font-family:var(--mono);font-size:10.5px;color:var(--muted-2);border-bottom:1px solid var(--border);background:var(--bg)}
+.md-copy{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 7px;border:1px solid var(--border);border-radius:5px;background:var(--bg-2);color:var(--muted);font-size:10.5px;transition:background .15s ease,color .15s ease}
+.md-copy:hover{background:var(--panel);color:var(--fg)}
+.msg__md pre code{display:block;padding:10px 12px;overflow-x:auto;font-family:var(--mono);font-size:12px;line-height:1.55;white-space:pre;background:none;border:none}
+.msg__md--plain{white-space:pre-wrap;font-family:var(--mono);font-size:12.5px}
+.reasoning__body.msg__md{white-space:normal}
+.tok-c{color:var(--muted)}
+.tok-s{color:var(--success)}
+.tok-k{color:var(--violet)}
+.tok-n{color:var(--warning)}
+
+/* ── in-session search ── */
+#search-bar{position:fixed;top:10px;right:12px;left:calc(220px + 12px);max-width:560px;margin-left:auto;z-index:90;display:none;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--border-strong);border-radius:var(--radius-lg);padding:6px 8px;box-shadow:var(--shadow-lg)}
+#search-bar.search-bar--open{display:flex}
+#search-input{flex:1;min-width:0;height:30px;border:none;background:none;color:var(--fg);font-size:13px;outline:none}
+#search-input::placeholder{color:var(--muted-2)}
+#search-count{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap}
+.search-nav{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--border);border-radius:6px;background:var(--bg-2);color:var(--muted);cursor:pointer;transition:background .15s ease,color .15s ease}
+.search-nav:hover{background:var(--panel);color:var(--fg)}
+.search-nav svg{width:13px;height:13px}
+mark.srch{background:var(--warning);color:oklch(15% 0 0);border-radius:3px;padding:0 1px}
+mark.srch--cur{background:var(--accent);color:oklch(99% 0 0)}
+@media(max-width:768px){
+  #search-bar{left:52px;right:10px}
+}
 </style>
 </head>
 <body>
@@ -389,6 +438,13 @@ input,textarea{font:inherit;color:inherit}
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
 </button>
 <div class="sidebar-overlay" id="sidebar-overlay"></div>
+<div id="search-bar" role="search">
+  <input id="search-input" type="search" placeholder="__('search_placeholder')" autocomplete="off" spellcheck="false" />
+  <span id="search-count">0/0</span>
+  <button type="button" class="search-nav" id="search-prev" title="__('search_prev')" aria-label="__('search_prev')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg></button>
+  <button type="button" class="search-nav" id="search-next" title="__('search_next')" aria-label="__('search_next')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></button>
+  <button type="button" class="search-nav" id="search-close" title="__('search_close')" aria-label="__('search_close')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+</div>
 <div class="app">
   <aside class="sidebar">
     <div class="sidebar__brand">
@@ -518,6 +574,9 @@ input,textarea{font:inherit;color:inherit}
       <div class="toolbar__spacer"></div>
       <div class="status" id="turn-info"></div>
       <div class="status" id="balance-info"></div>
+      <button class="toolbar__btn" id="btn-search" title="__('search')" aria-label="__('search')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+      </button>
     </div>
     <div class="composer">
       <span class="composer__caret">&#8250;</span>
@@ -685,6 +744,14 @@ const __T = {
     'reconnecting': 'Reconnecting...',
     'disconnected': 'Disconnected',
     'placeholder': 'Message Reasonix...  / for commands',
+    'search': 'Search',
+    'search_placeholder': 'Search in this session...',
+    'search_prev': 'Previous',
+    'search_next': 'Next',
+    'search_close': 'Close',
+    'search_no_matches': 'No matches',
+    'copy_code': 'Copy code',
+    'copied': 'Copied',
     'cmd_compact': 'Compact conversation',
     'cmd_new': 'New session',
     'cmd_resume': 'Resume session',
@@ -850,6 +917,14 @@ const __T = {
     'reconnecting': '重新连接...',
     'disconnected': '已断开',
     'placeholder': '给 Reasonix 发消息...  / 查看命令',
+    'search': '搜索',
+    'search_placeholder': '搜索当前会话...',
+    'search_prev': '上一条',
+    'search_next': '下一条',
+    'search_close': '关闭',
+    'search_no_matches': '无匹配',
+    'copy_code': '复制代码',
+    'copied': '已复制',
     'cmd_compact': '压缩对话',
     'cmd_new': '新建会话',
     'cmd_resume': '恢复会话',
@@ -1060,6 +1135,10 @@ let running = false, planMode = false, toolApprovalMode = 'workspace-write';
 let turnEpoch = 0;
 let goalMode = false, goalActive = false, goalText = '';
 let currentMsg = null, currentText = null, currentReasoning = null;
+// Markdown stream state: raw buffers accumulate deltas; a throttled re-render
+// formats them without rebuilding the reasoning toggle or dropping the cursor.
+const MD_RENDER_MS = 100, MD_PLAIN_LIMIT = 150000;
+let currentRaw = '', currentReasoningRaw = '', currentPlain = false, currentRenderTimer = 0, currentCursor = null;
 let turnStartAt = 0, turnTokens = 0, tickTimer = null, retryStatus = null;
 let toolCards = {};
 let escTimer = null;
@@ -1242,11 +1321,57 @@ function setConnState(state) {
 }
 
 // ── messages ──
-function addUserMsg(text) { hasVisibleHistory=true; updateActionAvailability(); hideWelcome(); const d=el('div','msg msg--user'); d.appendChild(el('span','msg__caret','›')); d.appendChild(el('div','msg__text',text)); log.appendChild(d); scrollDown(true); currentMsg=null;currentText=null;currentReasoning=null; }
+function addUserMsg(text) { hasVisibleHistory=true; updateActionAvailability(); hideWelcome(); const d=el('div','msg msg--user'); d.appendChild(el('span','msg__caret','›')); d.appendChild(el('div','msg__text',text)); log.appendChild(d); scrollDown(true); currentMsg=null;currentText=null;currentReasoning=null;currentRaw='';currentReasoningRaw='';currentPlain=false;currentCursor=null; }
 function ensureMsg() { if(!currentMsg){hasVisibleHistory=true; updateActionAvailability(); hideWelcome();currentMsg=el('div','msg msg--assistant');log.appendChild(currentMsg);} return currentMsg; }
-function appendText(t) { const m=ensureMsg(); if(!currentText){currentText=document.createElement('span');currentText.className='msg__text'; const old=m.querySelector('.cursor');if(old)old.remove(); m.appendChild(currentText); m.appendChild(el('span','cursor'));} currentText.textContent+=t; scrollDown(); }
-function appendReasoning(t) { const m=ensureMsg(); if(!currentReasoning){const w=el('div','reasoning'); const b=el('button','reasoning__toggle'); b.innerHTML='<span class="reasoning__chevron">▶</span> '+__('thinking'); const body=el('div','reasoning__body'); body.style.display='none'; b.onclick=()=>{body.style.display=body.style.display==='none'?'':'none';b.querySelector('.reasoning__chevron').className='reasoning__chevron'+(body.style.display!=='none'?' reasoning__chevron--open':'');}; w.appendChild(b);w.appendChild(body); if(currentText) m.insertBefore(w,currentText); else m.appendChild(w); currentReasoning=body;} currentReasoning.textContent+=t; scrollDown(); }
-function finalizeMsg() { if(currentMsg){const c=currentMsg.querySelector('.cursor');if(c)c.remove();} currentMsg=null;currentText=null;currentReasoning=null; }
+function mdRenderNow() {
+  if(currentRenderTimer){ clearTimeout(currentRenderTimer); currentRenderTimer=0; }
+  if(!currentMsg) return;
+  if(currentText){
+    if(currentPlain){ currentText.classList.add('msg__md--plain'); currentText.textContent = currentRaw; }
+    else { currentText.classList.remove('msg__md--plain'); currentText.innerHTML = mdRender(currentRaw); }
+    if(currentCursor){ currentCursor.remove(); currentText.after(currentCursor); }
+  }
+  if(currentReasoning) currentReasoning.innerHTML = mdRender(currentReasoningRaw);
+}
+function mdSchedule() {
+  if(currentRenderTimer) return;
+  currentRenderTimer = setTimeout(()=>{ currentRenderTimer=0; mdRenderNow(); scrollDown(); }, MD_RENDER_MS);
+}
+function appendText(t) {
+  const m = ensureMsg();
+  if(!currentText){ currentText = el('div','msg__text msg__md'); const c=m.querySelector('.cursor'); if(c)m.insertBefore(currentText,c); else m.appendChild(currentText); }
+  if(!currentCursor){ currentCursor = el('span','cursor'); m.appendChild(currentCursor); }
+  if(!currentPlain && currentRaw.length+(t||'').length > MD_PLAIN_LIMIT) currentPlain = true;
+  currentRaw += (t||'');
+  if(currentPlain) mdRenderNow();
+  else mdSchedule();
+  scrollDown();
+}
+function appendReasoning(t) {
+  const m = ensureMsg();
+  if(!currentReasoning){
+    const w=el('div','reasoning'); const b=el('button','reasoning__toggle');
+    b.innerHTML='<span class="reasoning__chevron">▶</span> '+__('thinking');
+    const body=el('div','reasoning__body msg__md'); body.style.display='none';
+    b.onclick=()=>{body.style.display=body.style.display==='none'?'':'none';b.querySelector('.reasoning__chevron').className='reasoning__chevron'+(body.style.display!=='none'?' reasoning__chevron--open':'');};
+    w.appendChild(b);w.appendChild(body); if(currentText) m.insertBefore(w,currentText); else m.appendChild(w);
+    currentReasoning=body;
+  }
+  currentReasoningRaw += (t||'');
+  mdSchedule();
+  scrollDown();
+}
+// The `text` event drops the reasoning ref; flush any throttled reasoning
+// delta synchronously first so the last window is never lost.
+function flushReasoningNow() {
+  if(currentReasoning) currentReasoning.innerHTML = mdRender(currentReasoningRaw);
+}
+function finalizeMsg() {
+  mdRenderNow();
+  if(currentCursor){ currentCursor.remove(); currentCursor=null; }
+  currentMsg=null;currentText=null;currentReasoning=null;
+  currentRaw='';currentReasoningRaw='';currentPlain=false;
+}
 
 // ── tool cards (v1 pattern) ──
 function toolIcon(kind) {
@@ -1282,6 +1407,188 @@ function copyText(text) {
   if(navigator.clipboard?.writeText)return navigator.clipboard.writeText(text).then(()=>true).catch(()=>false);
   return Promise.resolve(false);
 }
+
+// ── markdown renderer (safe: escape-first, URL scheme allowlist) ──
+// Assistant messages render markdown through mdRender(). Every text segment is
+// escaped before assembly; link/image URLs pass mdSafeUrl() and dangerous
+// schemes degrade to literal escaped text. Extension-provided surfaces still
+// never inject raw HTML — they remain text-only (see renderExtensionSurface).
+function mdEsc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function mdEscAttr(s) { return mdEsc(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function mdSafeUrl(raw, isImg) {
+  let u = String(raw||'').trim().replace(/[\u0000-\u001f<>"']/g, '');
+  if(!u) return '';
+  const m = u.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):/);
+  if(m){
+    const s = m[1].toLowerCase();
+    if(s!=='http'&&s!=='https'&&s!=='mailto') return '';
+    if(isImg&&s!=='http'&&s!=='https') return '';
+  }
+  return u;
+}
+const MD_LANG_KEYWORDS = {
+  js: ['const','let','var','function','return','if','else','for','while','class','new','import','export','from','async','await','try','catch','finally','throw','typeof','instanceof','extends','super','this','switch','case','break','default','do','yield','static','get','set','of','in','null','undefined','true','false'],
+  ts: ['const','let','var','function','return','if','else','for','while','class','new','import','export','from','async','await','try','catch','finally','throw','typeof','instanceof','extends','super','this','switch','case','break','default','do','yield','static','get','set','of','in','null','undefined','true','false','interface','type','enum','implements','public','private','readonly','as','namespace','declare','abstract'],
+  go: ['package','import','func','return','if','else','for','range','var','const','type','struct','interface','map','chan','go','defer','select','case','default','switch','break','continue','fallthrough','nil','true','false'],
+  py: ['def','return','if','elif','else','for','while','import','from','as','class','try','except','finally','with','lambda','pass','break','continue','None','True','False','and','or','not','in','is','global','nonlocal','yield','raise','assert','del'],
+  json: ['true','false','null'],
+  bash: ['if','then','else','elif','fi','for','do','done','while','case','esac','function','return','export','local','source','echo','exit','set','sudo','cd','alias'],
+  sh: ['if','then','else','elif','fi','for','do','done','while','case','esac','function','return','export','local','echo','exit','set'],
+  rust: ['fn','let','mut','pub','use','mod','struct','enum','impl','trait','match','if','else','for','while','loop','return','async','await','move','ref','dyn','where','Self','self','true','false','crate','super','as','in','const','static'],
+};
+function mdHighlight(code, lang) {
+  const l = (lang||'').toLowerCase();
+  const kws = MD_LANG_KEYWORDS[l];
+  if(!kws) return null;
+  const kw = new Set(kws);
+  // # starts a comment only for the shell/python family; // for the C-family.
+  const hashComment = (l==='py'||l==='bash'||l==='sh');
+  const re = /(\s+)|("(?:[^"\\\n]|\\.)*"?|'(?:[^'\\\n]|\\.)*'?|`(?:[^`\\\n]|\\.)*`?)|((?:\/\/|#)[^\n]*)|(-?\b\d[\d_]*(?:\.\d+)?\b)|([A-Za-z_$][A-Za-z0-9_$]*)|(.)/g;
+  let out='', m, last=0;
+  while((m=re.exec(code))){
+    if(m.index>last) out += mdEsc(code.slice(last,m.index));
+    const tok = m[0];
+    if(m[1]!=null) out += tok;
+    else if(m[2]!=null) out += '<span class="tok-s">'+mdEsc(tok)+'</span>';
+    else if(m[3]!=null){ const isComment = tok[0]==='#' ? hashComment : true; out += isComment ? '<span class="tok-c">'+mdEsc(tok)+'</span>' : mdEsc(tok); }
+    else if(m[4]!=null) out += '<span class="tok-n">'+mdEsc(tok)+'</span>';
+    else if(m[5]!=null&&kw.has(tok)) out += '<span class="tok-k">'+mdEsc(tok)+'</span>';
+    else if(m[5]!=null) out += mdEsc(tok);
+    else out += mdEsc(tok);
+    last = m.index+tok.length;
+  }
+  if(last<code.length) out += mdEsc(code.slice(last));
+  return out;
+}
+function mdInline(raw) {
+  const s = String(raw||'');
+  let out='', i=0;
+  // Note: single-underscore emphasis is intentionally not supported. It is
+  // ambiguous with snake_case identifiers and its lookbehind guard breaks the
+  // whole script on Safari <16.4. Bold/italic via ** and * cover the common
+  // cases; __bold__ is kept (no lookbehind needed).
+  const re = /`([^`\n]+)`|!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|\*\*([^*\s][^*]*?)\*\*|__([^_\s][^_]*?)__|\*([^*\s][^*]*?)\*|~~([^~\s][^~]*?)~~|(https?:\/\/[^\s<>"')]+)/g;
+  let m;
+  while((m=re.exec(s))){
+    if(m.index>i) out += mdEsc(s.slice(i,m.index));
+    if(m[1]!=null) out += '<code>'+mdEsc(m[1])+'</code>';
+    else if(m[2]!=null){
+      const u = mdSafeUrl(m[3],true);
+      out += u ? '<img src="'+mdEscAttr(u)+'" alt="'+mdEscAttr(m[2])+'" loading="lazy" referrerpolicy="no-referrer">' : mdEsc(m[0]);
+    } else if(m[4]!=null){
+      const u = mdSafeUrl(m[5],false);
+      out += u ? '<a href="'+mdEscAttr(u)+'" target="_blank" rel="noopener noreferrer">'+mdInline(m[4])+'</a>' : mdEsc(m[0]);
+    } else if(m[6]!=null) out += '<strong>'+mdInline(m[6])+'</strong>';
+    else if(m[7]!=null) out += '<strong>'+mdInline(m[7])+'</strong>';
+    else if(m[8]!=null) out += '<em>'+mdInline(m[8])+'</em>';
+    else if(m[9]!=null) out += '<del>'+mdEsc(m[9])+'</del>';
+    else out += '<a href="'+mdEscAttr(m[10])+'" target="_blank" rel="noopener noreferrer">'+mdEsc(m[10])+'</a>';
+    i = re.lastIndex;
+  }
+  if(i<s.length) out += mdEsc(s.slice(i));
+  return out;
+}
+function mdIsTableSep(line) {
+  return line.includes('-') && line.includes('|') && /^[\s:|-]+$/.test(line.trim());
+}
+// Normalize a table row to always carry leading/trailing pipes so split()
+// yields cells whether or not the source used outer pipes.
+function mdTableCells(line) {
+  let s = String(line||'').trim();
+  if(!s.startsWith('|')) s = '|' + s;
+  if(!s.endsWith('|')) s = s + '|';
+  return s.split('|').slice(1,-1).map(c=>c.trim());
+}
+function mdRender(src) {
+  const text = String(src||'');
+  const lines = text.split(/\r?\n/);
+  let out='', i=0;
+  const para = [];
+  const flushPara = () => { if(para.length){ out += '<p>'+mdInline(para.join(' '))+'</p>'; para.length=0; } };
+  const listStack = [];
+  const flushLists = () => { while(listStack.length) out += '</li></'+listStack.pop().type+'>'; };
+  const listIndent = (line) => line.match(/^(\s*)/)[1].length;
+  const listMatch = (line) => line.trim().match(/^([-*+]|\d+\.)\s+(.*)$/);
+  const listItem = (indent, type, body) => {
+    while(listStack.length && listStack[listStack.length-1].indent>indent) out += '</li></'+listStack.pop().type+'>';
+    if(listStack.length && listStack[listStack.length-1].indent===indent){
+      if(listStack[listStack.length-1].type===type){ out += '</li><li>'+mdInline(body); }
+      else { out += '</li></'+listStack.pop().type+'><'+type+'><li>'+mdInline(body); listStack.push({type,indent}); }
+    } else { out += '<'+type+'><li>'+mdInline(body); listStack.push({type,indent}); }
+  };
+  while(i<lines.length){
+    const line = lines[i], trimmed = line.trim();
+    if(!trimmed){ flushPara(); flushLists(); i++; continue; }
+    const fence = trimmed.match(/^```([\w+-]*)\s*$/);
+    if(fence){
+      flushPara(); flushLists();
+      const lang = fence[1], buf = [];
+      i++;
+      while(i<lines.length && !/^```\s*$/.test(lines[i].trim())){ buf.push(lines[i]); i++; }
+      i++;
+      const code = buf.join('\n');
+      const hl = mdHighlight(code, lang);
+      out += '<pre><div class="md-code-head"><span>'+(lang?mdEsc(lang):'code')+'</span><button type="button" class="md-copy">'+mdEsc(__('copy_code'))+'</button></div><code class="lang-'+mdEscAttr(lang||'')+'">'+(hl!=null?hl:mdEsc(code))+'</code></pre>';
+      continue;
+    }
+    const head = trimmed.match(/^(#{1,3})\s+(.*)$/);
+    if(head){ flushPara(); flushLists(); out += '<h'+head[1].length+'>'+mdInline(head[2])+'</h'+head[1].length+'>'; i++; continue; }
+    if(/^(\s*)(-{3,}|\*{3,}|_{3,})\s*$/.test(line)){ flushPara(); flushLists(); out += '<hr>'; i++; continue; }
+    if(line.includes('|') && i+1<lines.length && mdIsTableSep(lines[i+1])){
+      flushPara(); flushLists();
+      const headerCells = mdTableCells(line);
+      const rows = [];
+      i += 2;
+      while(i<lines.length && lines[i].includes('|') && lines[i].trim()!==''){ rows.push(mdTableCells(lines[i])); i++; }
+      out += '<div class="md-table-wrap"><table><thead><tr>';
+      headerCells.forEach(c=>{ out += '<th>'+mdInline(c)+'</th>'; });
+      out += '</tr></thead><tbody>';
+      rows.forEach(r=>{
+        out += '<tr>';
+        for(let c=0;c<headerCells.length;c++) out += '<td>'+mdInline(r[c]!=null?r[c]:'')+'</td>';
+        out += '</tr>';
+      });
+      out += '</tbody></table></div>';
+      continue;
+    }
+    if(/^>\s?/.test(line)){
+      flushPara(); flushLists();
+      const buf = [];
+      while(i<lines.length && /^>\s?/.test(lines[i])){ buf.push(lines[i].replace(/^>\s?/,'')); i++; }
+      out += '<blockquote>'+mdInline(buf.join(' '))+'</blockquote>';
+      continue;
+    }
+    const lm = listMatch(line);
+    if(lm){
+      flushPara();
+      const type = /^\d/.test(lm[1]) ? 'ol' : 'ul';
+      listItem(listIndent(line), type, lm[2]);
+      i++; continue;
+    }
+    flushLists();
+    para.push(trimmed);
+    i++;
+  }
+  flushPara();
+  flushLists();
+  return out;
+}
+// Delegated copy: rendered code blocks carry a .md-copy button; clicking copies
+// the raw code text of the sibling <code>, never the escaped HTML.
+function bindCodeCopy(root) {
+  root.addEventListener('click', (e) => {
+    const btn = e.target.closest('.md-copy');
+    if(!btn) return;
+    const pre = btn.closest('pre');
+    const code = pre && pre.querySelector('code');
+    if(!code) return;
+    copyText(code.textContent).then(ok => {
+      if(ok){ const old = btn.textContent; btn.textContent = __('copied'); setTimeout(()=>{ btn.textContent = old; }, 1200); }
+    });
+  });
+}
+bindCodeCopy(document);
+
 // A sub-agent's calls carry the spawning call's parentId. They render inside
 // that card, so a delegated command is never shown as the session's own work.
 function toolNestHost(tool) {
@@ -1720,8 +2027,8 @@ es.onmessage=ev=>{setConnState('connected');
   switch(e.kind){
     case 'turn_started': turnEpoch++; setRunning(true); clearPendingPrompts(); finalizeMsg(); toolCards={}; todosDismissed=false; break;
     case 'reasoning': appendReasoning(e.reasoning||e.text||''); break;
-    case 'text': currentReasoning=null; appendText(e.text||''); break;
-    case 'message': finalizeMsg(); break;
+    case 'text': flushReasoningNow(); currentReasoning=null; appendText(e.text||''); break;
+    case 'message': finalizeMsg(); searchRefresh(); break;
     case 'tool_dispatch': if(e.tool)renderToolDispatch(e.tool); break;
     case 'tool_result': if(e.tool){renderToolResult(e.tool);if(!e.tool.parentId&&!e.tool.err&&e.tool.todoWritten&&Array.isArray(e.tool.todos)){todosState=e.tool.todos;renderTodoPanel();}} break;
     case 'tool_progress': if(e.tool)renderToolProgress(e.tool); break;
@@ -1741,7 +2048,7 @@ es.onmessage=ev=>{setConnState('connected');
         log.appendChild(strip);scrollDown();
       } break;
     case 'notice': log.appendChild(el('div','notice'+(e.level==='warn'?' notice--warn':''),(e.level==='warn'?'! ':'')+(e.text||'')));scrollDown();break;
-    case 'phase': finalizeMsg(); log.appendChild(el('div','phase',e.text||''));scrollDown();break;
+    case 'phase': finalizeMsg(); log.appendChild(el('div','phase',e.text||''));scrollDown();searchRefresh();break;
     case 'approval_request': if(e.approval)showApproval(e.approval); break;
     case 'ask_request': if(e.ask)showAsk(e.ask); break;
     case 'extension_surface': if(e.extension)renderExtensionSurface(e.extension); break;
@@ -1749,7 +2056,7 @@ es.onmessage=ev=>{setConnState('connected');
     case 'compaction_started': showCompaction({trigger:e.compaction?.trigger}); break;
     case 'compaction_done': showCompaction(e.compaction||{}); break;
     case 'retrying': setRetrying(e.retryAttempt,e.retryMax,e.recovery); break;
-    case 'turn_done': turnEpoch++; clearPendingPrompts(); finalizeMsg(); setRunning(false); if(e.outcome==='final_readiness'){showFinalReadinessPause(e.readiness);}else if(e.outcome==='recovery_paused'){showNotice('⏸ '+__('recovery_paused'));}else if(e.outcome==='completion_uncertain'){showNotice('⏸ '+__('completion_uncertain'));}else if(e.err){log.appendChild(el('div','msg--error','✗ '+e.err));scrollDown();} if(e.protocolRecovery&&e.status!=='interrupted')showProtocolRecovery(e.protocolRecovery); fetchStatus(); fetchTodos(); refreshCheckpointAvailability(); break;
+    case 'turn_done': turnEpoch++; clearPendingPrompts(); finalizeMsg(); setRunning(false); if(e.outcome==='final_readiness'){showFinalReadinessPause(e.readiness);}else if(e.outcome==='recovery_paused'){showNotice('⏸ '+__('recovery_paused'));}else if(e.outcome==='completion_uncertain'){showNotice('⏸ '+__('completion_uncertain'));}else if(e.err){log.appendChild(el('div','msg--error','✗ '+e.err));scrollDown();} if(e.protocolRecovery&&e.status!=='interrupted')showProtocolRecovery(e.protocolRecovery); fetchStatus(); fetchTodos(); refreshCheckpointAvailability(); searchRefresh(); break;
   }
 };
 es.onerror=()=>{
@@ -1842,7 +2149,7 @@ function renderHistoryMessages(ms){
   // The SSE prompt replay can land before /history renders; keep pending
   // prompt cards below the transcript so they stay in view.
   log.querySelectorAll('.ask,.approval').forEach(c=>log.appendChild(c));
-  currentMsg=null;currentText=null;currentReasoning=null; scrollDown(true); updateActionAvailability(); return true;
+  currentMsg=null;currentText=null;currentReasoning=null;currentRaw='';currentReasoningRaw='';currentPlain=false;currentCursor=null; scrollDown(true); updateActionAvailability(); searchRefresh(); return true;
 }
 fetch('/history').then(r=>r.json()).then(msgs=>{renderHistoryMessages(msgs);fetchTodos();}).catch(()=>{});
 
@@ -2289,6 +2596,139 @@ $('#prune-confirm-input').addEventListener('input',e=>{
   if(confirm)confirm.disabled=e.target.value.trim()!==__('prune_confirm_word');
 });
 $('#prune-confirm').onclick=()=>{if(!$('#prune-confirm').disabled)executePrune();};
+
+// ── in-session search (Ctrl/Cmd+F) ──
+// Scans the transcript (#log) and the todo panel, wrapping matches in <mark>
+// via DOM-level text-node splitting — no innerHTML, so it stays safe and can
+// span inline markdown boundaries inside one message. Marks are cleared with
+// normalize() before each re-apply, and only re-applied at turn boundaries so
+// a streaming re-render never races the scanner.
+let searchOpen = false, searchQuery = '', searchMatches = [], searchCurrent = -1, searchMarks = [];
+function searchRoots() { return [log, $('#todo-panel')].filter(Boolean); }
+function clearSearchMarks() {
+  const parents = new Set();
+  for (const m of searchMarks) {
+    const p = m.parentNode;
+    if (p) { parents.add(p); p.replaceChild(document.createTextNode(m.textContent), m); }
+  }
+  parents.forEach(p => p.normalize());
+  searchMarks = []; searchMatches = []; searchCurrent = -1;
+}
+function searchBuildIndex(container) {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const p = node.parentElement;
+      if (!p) return NodeFilter.FILTER_REJECT;
+      if (p.closest('mark.srch,script,style,textarea,input')) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  const ranges = []; let text = '', n;
+  while ((n = walker.nextNode())) {
+    const start = text.length;
+    text += n.textContent;
+    ranges.push({ node: n, start, end: text.length });
+  }
+  return { text, ranges };
+}
+function searchWrapOne(node, ls, le) {
+  let head = node;
+  if (le < node.textContent.length) head = node.splitText(le);
+  let target = node;
+  if (ls > 0) target = node.splitText(ls);
+  const mark = document.createElement('mark');
+  mark.className = 'srch';
+  target.parentNode.replaceChild(mark, target);
+  mark.appendChild(target);
+  searchMarks.push(mark);
+  searchMatches.push(mark);
+  return mark;
+}
+function searchWrapRange(ranges, s, e) {
+  for (const r of ranges) {
+    if (r.end <= s) continue;
+    if (r.start >= e) break;
+    const ls = Math.max(s, r.start) - r.start;
+    const le = Math.min(e, r.end) - r.start;
+    if (le <= ls) continue;
+    searchWrapOne(r.node, ls, le);
+  }
+}
+function searchApply(query) {
+  clearSearchMarks();
+  searchQuery = query;
+  if (!query) { updateSearchCount(); return; }
+  const q = query.toLowerCase();
+  for (const root of searchRoots()) {
+    const containers = root === $('#todo-panel') ? Array.from(root.querySelectorAll('.todos__item')) : Array.from(root.children);
+    for (const c of containers) {
+      if (!c.textContent) continue;
+      const idx = searchBuildIndex(c);
+      const lower = idx.text.toLowerCase();
+      if (!lower.includes(q)) continue;
+      const occs = [];
+      let pos = 0;
+      while ((pos = lower.indexOf(q, pos)) !== -1) { occs.push([pos, pos + q.length]); pos += q.length; }
+      occs.sort((a, b) => b[0] - a[0]);
+      occs.forEach(([s, e]) => searchWrapRange(idx.ranges, s, e));
+    }
+  }
+  searchCurrent = searchMatches.length ? 0 : -1;
+  updateSearchCount();
+  if (searchCurrent >= 0) searchScrollCurrent();
+}
+function searchScrollCurrent() {
+  const m = searchMatches[searchCurrent];
+  if (!m) return;
+  searchMarks.forEach(x => x.classList.remove('srch--cur'));
+  m.classList.add('srch--cur');
+  m.scrollIntoView({ block: 'center' });
+}
+function searchNavigate(dir) {
+  if (!searchMatches.length) return;
+  searchCurrent = (searchCurrent + dir + searchMatches.length) % searchMatches.length;
+  updateSearchCount();
+  searchScrollCurrent();
+}
+function updateSearchCount() {
+  const el = $('#search-count');
+  if (!el) return;
+  if (!searchQuery) { el.textContent = '0/0'; return; }
+  el.textContent = searchMatches.length ? (searchCurrent + 1) + '/' + searchMatches.length : __('search_no_matches');
+}
+function openSearch() {
+  const bar = $('#search-bar');
+  if (bar) bar.classList.add('search-bar--open');
+  searchOpen = true;
+  const inp = $('#search-input');
+  if (inp) { inp.focus(); inp.select(); }
+  if (searchQuery) searchApply(searchQuery);
+}
+function closeSearch() {
+  const bar = $('#search-bar');
+  if (bar) bar.classList.remove('search-bar--open');
+  searchOpen = false;
+  clearSearchMarks();
+  searchQuery = '';
+  updateSearchCount();
+  const inp = $('#search-input');
+  if (inp) inp.value = '';
+}
+// Re-apply a live query at turn boundaries (streaming render never races this).
+function searchRefresh() { if (searchOpen && searchQuery) searchApply(searchQuery); }
+$('#btn-search').onclick = openSearch;
+$('#search-close').onclick = closeSearch;
+$('#search-prev').onclick = () => searchNavigate(-1);
+$('#search-next').onclick = () => searchNavigate(1);
+$('#search-input').addEventListener('input', (e) => searchApply(e.target.value));
+$('#search-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); searchNavigate(e.shiftKey ? -1 : 1); }
+  else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeSearch(); }
+  else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); searchNavigate(e.key === 'ArrowDown' ? 1 : -1); }
+});
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); openSearch(); }
+});
 
 // welcome examples
 $$('.welcome__ex').forEach(btn=>{btn.onclick=()=>{input.value=btn.dataset.prompt;send();};});
