@@ -25,22 +25,30 @@ func (c *Controller) prepareTurnAdmissionWithGoalRound(admissionCtx context.Cont
 	if admissionErr == nil && ledger != nil {
 		if ledger.CurrentStatus() == event.TurnRecoveryRequired {
 			admissionErr = ErrRecoveryRequired
-		} else if id, err := ledger.Begin(); err != nil {
-			admissionErr = err
 		} else {
-			c.mu.Lock()
-			c.turns.turnID = id
-			c.mu.Unlock()
-			if err := c.emitTurnEventChecked(event.Event{Kind: event.TurnStatusChanged, Status: event.TurnQueued}); err != nil {
+			// A rebuilt ask left pending by an interrupted turn is stale once a
+			// new turn starts. Settle it (recorded as cancelled) before the new
+			// turn begins so its resolution stays outside the new turn's ledger
+			// boundary; settling after Begin would mark the fresh turn terminal
+			// and drop every later event.
+			c.settleRecoveredAsks()
+			if id, err := ledger.Begin(); err != nil {
 				admissionErr = err
-			} else if goalRound != nil {
-				admissionErr = c.commitGoalRoundAdmission(goalRound)
-			} else if err := c.emitTurnEventChecked(event.Event{Kind: event.TurnStarted, Status: event.TurnInProgress}); err != nil {
-				admissionErr = err
-			} else if c.executor != nil {
-				// The committed host turn boundary owns todo lifetime. The executor
-				// repeats this reset on entry for controller-less clients.
-				c.executor.BeginTurnTodoState()
+			} else {
+				c.mu.Lock()
+				c.turns.turnID = id
+				c.mu.Unlock()
+				if err := c.emitTurnEventChecked(event.Event{Kind: event.TurnStatusChanged, Status: event.TurnQueued}); err != nil {
+					admissionErr = err
+				} else if goalRound != nil {
+					admissionErr = c.commitGoalRoundAdmission(goalRound)
+				} else if err := c.emitTurnEventChecked(event.Event{Kind: event.TurnStarted, Status: event.TurnInProgress}); err != nil {
+					admissionErr = err
+				} else if c.executor != nil {
+					// The committed host turn boundary owns todo lifetime. The executor
+					// repeats this reset on entry for controller-less clients.
+					c.executor.BeginTurnTodoState()
+				}
 			}
 		}
 	}

@@ -76,33 +76,9 @@ func (*AskTool) Execute(ctx context.Context, args json.RawMessage) (string, erro
 	if err != nil {
 		return "", err
 	}
-
-	qs := make([]event.AskQuestion, 0, len(p.Questions))
-	for i, q := range p.Questions {
-		question := strings.TrimSpace(q.Question)
-		if question == "" || len(q.Options) < 2 {
-			return "", fmt.Errorf("question %d: a question and at least two options are required", i+1)
-		}
-		opts := make([]event.AskOption, len(q.Options))
-		seenLabels := make(map[string]int, len(q.Options))
-		for j, o := range q.Options {
-			label := strings.TrimSpace(o.Label)
-			if label == "" {
-				return "", fmt.Errorf("question %d option %d: label is required", i+1, j+1)
-			}
-			if prev, ok := seenLabels[label]; ok {
-				return "", fmt.Errorf("question %d option %d: duplicate label %q also used by option %d", i+1, j+1, label, prev+1)
-			}
-			seenLabels[label] = j
-			opts[j] = event.AskOption{Label: label, Description: strings.TrimSpace(o.Description)}
-		}
-		qs = append(qs, event.AskQuestion{
-			ID:      fmt.Sprintf("q%d", i+1),
-			Header:  strings.TrimSpace(q.Header),
-			Prompt:  question,
-			Options: opts,
-			Multi:   q.MultiSelect,
-		})
+	qs, err := ParseAskRequestArguments(args)
+	if err != nil {
+		return "", err
 	}
 
 	id := strings.TrimSpace(p.DecisionID)
@@ -135,17 +111,57 @@ func (*AskTool) Execute(ctx context.Context, args json.RawMessage) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("ask: %w", err)
 	}
-	summary := formatAnswers(qs, answers)
+	summary := FormatAskAnswers(qs, answers)
 	rememberDecisionForQuestions(ctx, id, qs[0].Prompt, summary, qs)
 	return summary + "\n\ndecision_id: " + id, nil
 }
 
-// formatAnswers renders the user's selections as a compact, model-facing summary,
-// keyed by question header so the model can tell which answer is which. When the
-// user picked nothing at all (the "just chat" / dismiss path), it returns an
-// explicit stop signal instead of a per-question "(no answer)" — otherwise the
-// model reads the empty result as license to proceed and acts unasked.
-func formatAnswers(qs []event.AskQuestion, answers []event.AskAnswer) string {
+// ParseAskRequestArguments parses and validates an ask tool call's arguments
+// into the question batch the frontend renders. It is shared by live execution
+// and by restart recovery, where an interrupted turn's pending ask is rebuilt
+// from the durable tool call.
+func ParseAskRequestArguments(args json.RawMessage) ([]event.AskQuestion, error) {
+	p, err := parseAskArgs(args)
+	if err != nil {
+		return nil, err
+	}
+	qs := make([]event.AskQuestion, 0, len(p.Questions))
+	for i, q := range p.Questions {
+		question := strings.TrimSpace(q.Question)
+		if question == "" || len(q.Options) < 2 {
+			return nil, fmt.Errorf("question %d: a question and at least two options are required", i+1)
+		}
+		opts := make([]event.AskOption, len(q.Options))
+		seenLabels := make(map[string]int, len(q.Options))
+		for j, o := range q.Options {
+			label := strings.TrimSpace(o.Label)
+			if label == "" {
+				return nil, fmt.Errorf("question %d option %d: label is required", i+1, j+1)
+			}
+			if prev, ok := seenLabels[label]; ok {
+				return nil, fmt.Errorf("question %d option %d: duplicate label %q also used by option %d", i+1, j+1, label, prev+1)
+			}
+			seenLabels[label] = j
+			opts[j] = event.AskOption{Label: label, Description: strings.TrimSpace(o.Description)}
+		}
+		qs = append(qs, event.AskQuestion{
+			ID:      fmt.Sprintf("q%d", i+1),
+			Header:  strings.TrimSpace(q.Header),
+			Prompt:  question,
+			Options: opts,
+			Multi:   q.MultiSelect,
+		})
+	}
+	return qs, nil
+}
+
+// FormatAskAnswers renders the user's selections as a compact, model-facing
+// summary, keyed by question header so the model can tell which answer is which.
+// When the user picked nothing at all (the "just chat" / dismiss path), it
+// returns an explicit stop signal instead of a per-question "(no answer)" —
+// otherwise the model reads the empty result as license to proceed and acts
+// unasked. Recovery reuses it to answer an interrupted turn's pending ask.
+func FormatAskAnswers(qs []event.AskQuestion, answers []event.AskAnswer) string {
 	pick := make(map[string][]string, len(answers))
 	for _, a := range answers {
 		pick[a.QuestionID] = a.Selected

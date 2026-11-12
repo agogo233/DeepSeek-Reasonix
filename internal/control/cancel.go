@@ -52,6 +52,12 @@ func (c *Controller) CancelSessionFrom(source string) CancelReceipt {
 	} else {
 		token, turnID, cancelled = c.signalTurnCancelIdentity()
 	}
+	// A rebuilt ask survives restart with no live turn to cancel. A stop press
+	// must settle it or the frontend card stays pending forever.
+	if !cancelled && !maintenancePresent && c.hasRecoveredAsks() {
+		c.settleRecoveredAsks()
+		alreadyIdle = false
+	}
 	c.recordLifecycle("cancel_requested", source, turnID, 0, "")
 	if cancelled {
 		alreadyIdle = false

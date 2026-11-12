@@ -1273,6 +1273,10 @@ func (s *Server) resumeIdentitySession(w http.ResponseWriter, r *http.Request, h
 		_ = s.leases.Rebind("")
 	}
 	s.setControllerPath(ctrl, "")
+	// A session whose previous process died while waiting on an ask question
+	// would otherwise reopen with a stuck, unanswerable turn. Rebuild the ask
+	// from the durable projection so the frontend card is actionable again.
+	ctrl.RecoverPendingAsk()
 	w.Header().Set(sessionIDHeader, ref.SessionID)
 	s.announceSessionChanged("", false)
 	w.WriteHeader(http.StatusNoContent)

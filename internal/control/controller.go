@@ -412,6 +412,16 @@ type pendingAsk struct {
 	questions []event.AskQuestion
 	reply     chan []event.AskAnswer
 	queued    bool // registered but not yet shown; replay must skip it
+	// recovered marks an ask rebuilt after a restart from an interrupted turn's
+	// dangling tool call. It has no live goroutine blocked on reply, so answering
+	// records the tool result into the durable history instead of resuming one.
+	recovered *recoveredAskContext
+}
+
+// recoveredAskContext is the durable evidence an interrupted turn left behind: the
+// ask tool call ID that has no recorded result and the turn it belonged to.
+type recoveredAskContext struct {
+	callID string
 }
 
 type plannerSessionResetter interface {
@@ -2456,6 +2466,12 @@ func (c *Controller) answerQuestionCheckedLocked(id string, answers []event.AskA
 	}
 	if ok {
 		c.promptOwner.MarkIDTerminal(id, PromptAnswered)
+		// A rebuilt ask has no live goroutine waiting on reply; answering
+		// records the tool result instead of resuming a turn that died with
+		// the previous process.
+		if pending.recovered != nil {
+			return c.answerRecoveredAskLocked(id, pending, answers)
+		}
 		// An answer batch with no selections is the explicit "skip and continue
 		// chat" path. End the current turn instead of feeding a prose dismissal
 		// back to the model and trusting it not to ask again (#6869).

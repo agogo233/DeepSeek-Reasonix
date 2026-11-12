@@ -564,6 +564,60 @@ func (a *approvalManager) markAskEmitted(id string) {
 	}
 }
 
+// markAskRecovered attaches the interrupted-turn evidence to a rebuilt ask so
+// AnswerQuestionChecked can settle it without a live goroutine to resume.
+func (a *approvalManager) markAskRecovered(id, callID string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if p, ok := a.asks[id]; ok {
+		p.recovered = &recoveredAskContext{callID: callID}
+		a.asks[id] = p
+	}
+}
+
+// hasAnyRecoveredAsk reports whether any rebuilt ask is still registered, so a
+// cancel press can decide to settle them without consuming them.
+func (a *approvalManager) hasAnyRecoveredAsk() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for _, p := range a.asks {
+		if p.recovered != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// claimRecoveredAsks atomically removes and returns every rebuilt ask still
+// registered. Claiming under the lock makes cancellation settlement single-shot:
+// a concurrent admission or cancel pass cannot double-record the same result.
+func (a *approvalManager) claimRecoveredAsks() []recoveredAskEntry {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	var out []recoveredAskEntry
+	for id, p := range a.asks {
+		if p.recovered != nil {
+			out = append(out, recoveredAskEntry{id: id, callID: p.recovered.callID, questions: p.questions})
+			delete(a.asks, id)
+		}
+	}
+	return out
+}
+
+// hasRecoveredAskForCall reports whether the interrupted call's ask was already
+// rebuilt, so repeated recovery passes never stack a second card. Callers must
+// hold the promptEmitMu critical section.
+func (a *approvalManager) hasRecoveredAskForCall(callID string) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for _, p := range a.asks {
+		if p.recovered != nil && p.recovered.callID == callID {
+			return true
+		}
+	}
+	return false
+}
+
 // cancelAsk drops a pending ask (timeout/abort path).
 func (a *approvalManager) cancelAsk(id string) {
 	a.mu.Lock()
