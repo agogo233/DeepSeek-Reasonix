@@ -27,6 +27,7 @@ on:
         type: boolean
 
 permissions:
+  actions: write
   contents: write
 
 jobs:
@@ -34,6 +35,13 @@ jobs:
     name: Build Linux amd64
     runs-on: ubuntu-latest
     steps:
+      - name: Delete old workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 7
+          keep_minimum_runs: 3
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.ref }}
@@ -78,6 +86,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
+          retention-days: 7
           name: reasonix-cli-linux-amd64
           path: dist/packaged/*
           if-no-files-found: error
@@ -135,6 +144,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
+          retention-days: 7
           name: reasonix-cli-windows-amd64
           path: dist/packaged/*
           if-no-files-found: error
