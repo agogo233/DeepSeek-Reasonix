@@ -99,8 +99,7 @@ func TestPruneCutoffKeepsRecent(t *testing.T) {
 	createPruneSession(t, service, "recent", "")
 	// A cutoff a day in the past is before every just-created session's
 	// UpdatedAt, so neither is idle long enough and the age filter matches
-	// nothing. This pins that the age filter never treats a fresh session as
-	// ancient.
+	// nothing — fresh sessions are never mistaken for ancient ones.
 	report := service.Prune(t.Context(), PruneOptions{Cutoff: time.Now().Add(-24 * time.Hour)})
 	if report.Matched != 0 || report.Deleted != 0 {
 		t.Fatalf("matched=%d deleted=%d, want 0/0 (both newer than cutoff)", report.Matched, report.Deleted)

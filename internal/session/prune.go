@@ -34,15 +34,15 @@ type PruneOptions struct {
 // PruneReport is the outcome of one Prune call, shared by the CLI and the
 // serve endpoint so both surfaces report the same numbers.
 type PruneReport struct {
-	Matched          int
-	Deleted          int
-	Busy             int
-	Unknown          int // empty-filter candidates whose metadata could not be refreshed
-	AlreadyDeleted   int
-	Errors           []string
-	DeletedSessionID []string
-	BusySessionID    []string
-	DryRun           bool
+	Matched          int      `json:"matched"`
+	Deleted          int      `json:"deleted"`
+	Busy             int      `json:"busy"`
+	Unknown          int      `json:"unknown"` // empty-filter candidates whose metadata could not be refreshed
+	AlreadyDeleted   int      `json:"alreadyDeleted"`
+	Errors           []string `json:"errors"`
+	DeletedSessionID []string `json:"deletedSessionIds,omitempty"`
+	BusySessionID    []string `json:"busySessionIds,omitempty"`
+	DryRun           bool     `json:"dryRun"`
 }
 
 // Prune walks the canonical store this service owns and deletes (or, in a dry
@@ -88,9 +88,12 @@ func (s *Service) Prune(ctx context.Context, opts PruneOptions) PruneReport {
 	}
 	if opts.DryRun {
 		// A dry run reports the sessions that would be deleted, matching the
-		// CLI's "would delete: N" summary. Busy/unknown are unknowable without
-		// attempting the delete, so they stay zero.
+		// CLI's "would delete: N" summary and its id preview. Busy is
+		// unknowable without attempting the delete, so it stays zero.
 		report.Deleted = report.Matched
+		for _, ref := range matches {
+			report.DeletedSessionID = append(report.DeletedSessionID, ref.SessionID)
+		}
 		return report
 	}
 	for _, ref := range matches {

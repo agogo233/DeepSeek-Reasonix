@@ -299,6 +299,14 @@ input,textarea{font:inherit;color:inherit}
 .session-search__input{width:100%;height:28px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);padding:0 9px;font-size:12px;outline:none}
 .session-search__input::placeholder{color:var(--muted-2)}
 .session-search__input:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.session-actions{display:flex;gap:4px;padding:0 8px 6px}
+.session-action{flex:1;height:24px;border:1px solid var(--border);border-radius:6px;background:var(--bg-2);color:var(--fg-2);font-size:11px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.session-action:hover:not(:disabled){border-color:var(--border-strong);color:var(--fg)}
+.session-action:disabled{opacity:.45;cursor:default}
+.session-action--danger{background:var(--danger-soft);border-color:transparent;color:var(--danger)}
+.prune-confirm-input{padding:8px 0 2px}
+.prune-confirm-field{width:100%;height:30px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);padding:0 10px;font-size:12px;outline:none}
+.prune-confirm-field:focus{border-color:var(--danger)}
 .session-item{display:flex;align-items:center;gap:7px;padding:7px 8px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--fg-2);transition:background .15s ease,color .15s ease;overflow:hidden}
 .session-item:hover{background:var(--panel);color:var(--fg)}
 .session-item--active{background:var(--accent-soft);color:var(--accent)}
@@ -414,6 +422,10 @@ input,textarea{font:inherit;color:inherit}
     <div class="sidebar__label-row"><span class="sidebar__label" style="padding:0">__('sessions')</span><span id="session-count" class="session-item__meta"></span></div>
     <div class="session-search">
       <input class="session-search__input" id="session-search" type="search" placeholder="__('search_sessions')" aria-label="__('search_sessions')">
+    </div>
+    <div class="session-actions">
+      <button type="button" class="session-action" id="prune-empty-btn" disabled>__('prune_empty')</button>
+      <button type="button" class="session-action session-action--danger" id="prune-all-btn" disabled>__('prune_all')</button>
     </div>
     <div class="session-list" id="session-list">
       <div style="padding:10px;color:var(--muted-2);font-size:12px">__('loading')</div>
@@ -607,6 +619,25 @@ input,textarea{font:inherit;color:inherit}
     </div>
   </div>
 </div>
+<!-- prune confirmation modal -->
+<div class="modal-overlay" id="prune-modal" style="display:none">
+  <div class="modal">
+    <div class="modal__head">
+      <span id="prune-modal-title">__('prune_empty')</span>
+      <span class="modal__close" id="prune-modal-close">&times;</span>
+    </div>
+    <div class="modal__body">
+      <div class="empty-note" id="prune-modal-body"></div>
+      <div class="prune-confirm-input" id="prune-confirm-wrap" style="display:none">
+        <input class="prune-confirm-field" id="prune-confirm-input" type="text" placeholder="__('prune_confirm_placeholder')" aria-label="__('prune_confirm_placeholder')">
+      </div>
+      <div class="dialog-actions">
+        <button class="dialog-btn" id="prune-cancel" type="button">__('cancel_plain')</button>
+        <button class="dialog-btn dialog-btn--danger" id="prune-confirm" type="button" disabled>__('delete')</button>
+      </div>
+    </div>
+  </div>
+</div>
 <script>
 // ── i18n ──
 const __LANG_PREF = '__LANG__';
@@ -734,6 +765,15 @@ const __T = {
     'active': 'Active',
     'use_model': 'Use',
     'no_sessions': 'No sessions',
+    'prune_empty': 'Prune Empty',
+    'prune_all': 'Delete All',
+    'prune_confirm_empty': 'This will prune {n} empty session(s). Sessions in use are skipped.',
+    'prune_confirm_all': 'This will delete {n} session(s), including ones with content. Sessions in use are skipped. This cannot be undone.',
+    'prune_confirm_word': 'DELETE ALL',
+    'prune_confirm_placeholder': 'Type DELETE ALL to confirm',
+    'prune_running': 'Cleaning sessions...',
+    'prune_result': 'Cleaned {d}, skipped {b} in use, {k} failed',
+    'prune_failed': 'Cleanup failed. Check your connection and try again.',
     'error_loading': 'Error loading',
     'resume_failed': 'Could not switch to that session',
     'no_checkpoints': 'No checkpoints available.',
@@ -889,6 +929,15 @@ const __T = {
     'active': '当前',
     'use_model': '使用',
     'no_sessions': '暂无会话',
+    'prune_empty': '清理空会话',
+    'prune_all': '全部删除',
+    'prune_confirm_empty': '将清理 {n} 个空会话，使用中的会话将自动跳过。',
+    'prune_confirm_all': '将删除 {n} 个会话（含有内容的会话），使用中的会话将自动跳过。此操作不可恢复。',
+    'prune_confirm_word': '全部删除',
+    'prune_confirm_placeholder': '输入「全部删除」以确认',
+    'prune_running': '正在清理会话…',
+    'prune_result': '已清理 {d} 个，跳过 {b} 个使用中，失败 {k} 个',
+    'prune_failed': '清理失败，请检查连接后重试。',
     'error_loading': '加载失败',
     'resume_failed': '无法切换到该会话',
     'no_checkpoints': '暂无可用检查点',
@@ -1007,7 +1056,7 @@ let turnStartAt = 0, turnTokens = 0, tickTimer = null, retryStatus = null;
 let toolCards = {};
 let escTimer = null;
 let hasVisibleHistory = false, checkpointCount = 0;
-let sessionsCache = [], sessionFilter = '', pendingDeleteSession = null;
+let sessionsCache = [], sessionFilter = '', pendingDeleteSession = null, pendingPruneMode = null;
 
 // ── slash commands registry ──
 const SLASH_CMDS = [
@@ -1771,6 +1820,9 @@ function renderSessions(){
   });
   sessionCount=sessionsCache.length;
   if(count)count.textContent=sessionCount?String(sessionCount):'';
+  // Update the bulk-prune buttons before any early return so they reflect the
+  // store even when the cache (or the filtered view) is empty.
+  updatePruneButtons();
   if(sessionsCache.length===0){list.innerHTML='<div style="padding:10px;color:var(--muted-2);font-size:12px">'+__('no_sessions')+'</div>';return;}
   if(filtered.length===0){list.innerHTML='<div style="padding:10px;color:var(--muted-2);font-size:12px">'+__('no_sessions')+'</div>';return;}
   list.innerHTML='';
@@ -2116,6 +2168,85 @@ $('#delete-confirm').onclick=()=>{
     loadSessions();
   }).catch(()=>showNotice(__('delete_failed'),'warn'));
 };
+
+// ── bulk prune (empty sessions / delete all) ──
+function updatePruneButtons(){
+  const empty=$('#prune-empty-btn'), all=$('#prune-all-btn');
+  if(empty)empty.disabled=!sessionsCache.some(s=>!s.turns);
+  if(all)all.disabled=sessionsCache.length===0;
+}
+function openPruneConfirm(mode, matched){
+  pendingPruneMode=mode;
+  const title=$('#prune-modal-title'), body=$('#prune-modal-body');
+  if(title)title.textContent=mode==='empty'?__('prune_empty'):__('prune_all');
+  if(body)body.textContent=mode==='empty'
+    ?__('prune_confirm_empty').replace('{n}',matched)
+    :__('prune_confirm_all').replace('{n}',matched);
+  const wrap=$('#prune-confirm-wrap'), input=$('#prune-confirm-input'), confirm=$('#prune-confirm');
+  if(mode==='all'){
+    if(wrap)wrap.style.display='';
+    if(input){input.value='';input.focus();}
+    if(confirm)confirm.disabled=true;
+  }else{
+    if(wrap)wrap.style.display='none';
+    if(confirm)confirm.disabled=false;
+  }
+  const modal=$('#prune-modal');
+  if(modal)modal.style.display='flex';
+}
+function closePrune(){
+  pendingPruneMode=null;
+  const modal=$('#prune-modal');
+  if(modal)modal.style.display='none';
+}
+async function startPrune(mode){
+  const btn=mode==='empty'?$('#prune-empty-btn'):$('#prune-all-btn');
+  if(btn)btn.disabled=true;
+  showNotice(__('prune_running'),'warn');
+  try{
+    const r=await post('/delete-sessions',{mode,dryRun:true});
+    if(!r.ok){if(btn)btn.disabled=false;showNotice((await r.text().catch(()=>'' )).trim()||('HTTP '+r.status),'warn');return;}
+    const report=await r.json();
+    if(btn)btn.disabled=false;
+    if(report.matched===0){showNotice(mode==='empty'?__('prune_confirm_empty').replace('{n}',0):__('prune_confirm_all').replace('{n}',0),'warn');return;}
+    openPruneConfirm(mode, report.matched);
+  }catch(e){
+    if(btn)btn.disabled=false;
+    showNotice(__('prune_failed'),'warn');
+  }
+}
+async function executePrune(){
+  const mode=pendingPruneMode;
+  if(!mode)return;
+  closePrune();
+  const btn=mode==='empty'?$('#prune-empty-btn'):$('#prune-all-btn');
+  if(btn)btn.disabled=true;
+  showNotice(__('prune_running'),'warn');
+  try{
+    const r=await post('/delete-sessions',{mode});
+    if(!r.ok){if(btn)btn.disabled=false;showNotice((await r.text().catch(()=>'' )).trim()||('HTTP '+r.status),'warn');return;}
+    const report=await r.json();
+    if(btn)btn.disabled=false;
+    showNotice(__('prune_result')
+      .replace('{d}',report.deleted??0)
+      .replace('{b}',report.busy??0)
+      .replace('{k}',(report.errors?.length??0)),'warn');
+    loadSessions();
+  }catch(e){
+    if(btn)btn.disabled=false;
+    showNotice(__('prune_failed'),'warn');
+  }
+}
+$('#prune-empty-btn').onclick=()=>startPrune('empty');
+$('#prune-all-btn').onclick=()=>startPrune('all');
+$('#prune-modal-close').onclick=()=>closePrune();
+$('#prune-cancel').onclick=()=>closePrune();
+$('#prune-modal').onclick=e=>{if(e.target===e.currentTarget)closePrune();};
+$('#prune-confirm-input').addEventListener('input',e=>{
+  const confirm=$('#prune-confirm');
+  if(confirm)confirm.disabled=e.target.value.trim()!==__('prune_confirm_word');
+});
+$('#prune-confirm').onclick=()=>{if(!$('#prune-confirm').disabled)executePrune();};
 
 // welcome examples
 $$('.welcome__ex').forEach(btn=>{btn.onclick=()=>{input.value=btn.dataset.prompt;send();};});
