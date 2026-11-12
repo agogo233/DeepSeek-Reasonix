@@ -1054,6 +1054,10 @@ window.fetch = (...args) => __authReady.then(() => __nativeFetch(...args)).then(
 
 // ── state ──
 let running = false, planMode = false, toolApprovalMode = 'workspace-write';
+// turnEpoch guards /status snapshots against an in-flight SSE turn event: a
+// stale poll must never re-show (or hide) the stop button after the SSE stream
+// already advanced the authoritative running state.
+let turnEpoch = 0;
 let goalMode = false, goalActive = false, goalText = '';
 let currentMsg = null, currentText = null, currentReasoning = null;
 let turnStartAt = 0, turnTokens = 0, tickTimer = null, retryStatus = null;
@@ -1714,7 +1718,7 @@ es.onmessage=ev=>{setConnState('connected');
   const e=JSON.parse(ev.data);
   if(e.kind!=='retrying')clearRetrying();
   switch(e.kind){
-    case 'turn_started': setRunning(true); clearPendingPrompts(); finalizeMsg(); toolCards={}; todosDismissed=false; break;
+    case 'turn_started': turnEpoch++; setRunning(true); clearPendingPrompts(); finalizeMsg(); toolCards={}; todosDismissed=false; break;
     case 'reasoning': appendReasoning(e.reasoning||e.text||''); break;
     case 'text': currentReasoning=null; appendText(e.text||''); break;
     case 'message': finalizeMsg(); break;
@@ -1745,7 +1749,7 @@ es.onmessage=ev=>{setConnState('connected');
     case 'compaction_started': showCompaction({trigger:e.compaction?.trigger}); break;
     case 'compaction_done': showCompaction(e.compaction||{}); break;
     case 'retrying': setRetrying(e.retryAttempt,e.retryMax,e.recovery); break;
-    case 'turn_done': clearPendingPrompts(); finalizeMsg(); setRunning(false); if(e.outcome==='final_readiness'){showFinalReadinessPause(e.readiness);}else if(e.outcome==='recovery_paused'){showNotice('⏸ '+__('recovery_paused'));}else if(e.outcome==='completion_uncertain'){showNotice('⏸ '+__('completion_uncertain'));}else if(e.err){log.appendChild(el('div','msg--error','✗ '+e.err));scrollDown();} if(e.protocolRecovery&&e.status!=='interrupted')showProtocolRecovery(e.protocolRecovery); fetchStatus(); fetchTodos(); refreshCheckpointAvailability(); break;
+    case 'turn_done': turnEpoch++; clearPendingPrompts(); finalizeMsg(); setRunning(false); if(e.outcome==='final_readiness'){showFinalReadinessPause(e.readiness);}else if(e.outcome==='recovery_paused'){showNotice('⏸ '+__('recovery_paused'));}else if(e.outcome==='completion_uncertain'){showNotice('⏸ '+__('completion_uncertain'));}else if(e.err){log.appendChild(el('div','msg--error','✗ '+e.err));scrollDown();} if(e.protocolRecovery&&e.status!=='interrupted')showProtocolRecovery(e.protocolRecovery); fetchStatus(); fetchTodos(); refreshCheckpointAvailability(); break;
   }
 };
 es.onerror=()=>{
@@ -1757,6 +1761,7 @@ __authReady.then(connectEvents).catch(error=>{setConnState('disconnected');showN
 
 // ── status polling ──
 function fetchStatus(){
+  const epochAtRequest=turnEpoch;
   fetch('/status').then(r=>r.json()).then(s=>{
     if(s.label)statusModel.textContent=s.label;
     if(welcomeModel)welcomeModel.textContent=s.label||'-';
@@ -1766,6 +1771,14 @@ function fetchStatus(){
     const rawPermission=s.toolApprovalMode || 'workspace-write';
     toolApprovalMode=rawPermission==='ask'?'read-only':(rawPermission==='auto'||rawPermission==='yolo'?'workspace-write':rawPermission);
     updateModeButtons();
+    // Reconcile the stop button after a reload, an SSE reconnect, or a switch
+    // to a busy session: those paths never see turn_started, so it would stay
+    // hidden until the next turn event. A pause state (recovery_required /
+    // completion_uncertain) is not cancellable, so the button must not resurface
+    // there — reconcile on the cancellable flag rather than running. The epoch
+    // guard drops a poll whose snapshot predates an already-applied SSE turn
+    // event, so a stale response can never un-show a button the stream advanced.
+    if(typeof s.cancellable==='boolean'&&s.cancellable!==running&&turnEpoch===epochAtRequest)setRunning(s.cancellable);
     if(s.window){const pct=Math.min(100,Math.round(s.used/s.window*100));ctxFill.style.width=pct+'%';ctxFill.style.background=pct>85?'var(--warning)':pct>95?'var(--danger)':'var(--accent)';ctxUsed.textContent=fmtTok(s.used)+' tok';ctxWindow.textContent=fmtTok(s.window)+' tok';}
     // goal state
     goalText=(s.goal||'').trim();
@@ -1860,7 +1873,7 @@ function renderSessions(){
     const title=sessionTitle(s);
     const meta=s.turns?s.turns+' turns':'';
     item.innerHTML='<svg class="session-item__icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div class="session-item__body"><div class="session-item__title">'+escHtml(title)+'</div><div class="session-item__meta">'+escHtml(meta)+'</div></div><button type="button" class="session-del" data-name="'+escAttr(s.name)+'" title="'+escAttr(__('delete_session'))+'">&times;</button>';
-    item.onclick=ev=>{if(ev.target.closest('.session-del')||running||s.current)return;post('/resume',{path:s.path,sessionId:s.sessionId,hostId:s.hostId,name:s.name}).then(async r=>{if(!r.ok){const detail=(await r.text().catch(()=>'')).trim();showNotice(__('resume_failed')+' (HTTP '+r.status+(detail?': '+detail:'')+')','warn');return;}log.innerHTML='';log.appendChild(welcome);showWelcome();hasVisibleHistory=false;checkpointCount=0;todosDismissed=false;resetCumulativeStats();loadSessions();updateActionAvailability();setTimeout(()=>fetch('/history').then(r=>r.json()).then(msgs=>{renderHistoryMessages(msgs);fetchTodos();refreshCheckpointAvailability();}),300);}).catch(()=>showNotice(__('resume_failed'),'warn'));};
+    item.onclick=ev=>{if(ev.target.closest('.session-del')||running||s.current)return;post('/resume',{path:s.path,sessionId:s.sessionId,hostId:s.hostId,name:s.name}).then(async r=>{if(!r.ok){const detail=(await r.text().catch(()=>'')).trim();showNotice(__('resume_failed')+' (HTTP '+r.status+(detail?': '+detail:'')+')','warn');return;}log.innerHTML='';log.appendChild(welcome);showWelcome();hasVisibleHistory=false;checkpointCount=0;todosDismissed=false;resetCumulativeStats();loadSessions();fetchStatus();updateActionAvailability();setTimeout(()=>fetch('/history').then(r=>r.json()).then(msgs=>{renderHistoryMessages(msgs);fetchTodos();refreshCheckpointAvailability();}),300);}).catch(()=>showNotice(__('resume_failed'),'warn'));};
     list.appendChild(item);
   });
 }
