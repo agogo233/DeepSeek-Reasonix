@@ -135,11 +135,13 @@ func printCLIReport(pending crashreport.Pending, out, errOut io.Writer) int {
 }
 
 func sendPendingCLIReport(home string, pending crashreport.Pending, out, errOut io.Writer) int {
-	// Fork-level privacy opt-out: never upload CLI crash reports.
-	_ = home
-	_ = pending
-	_ = out
-	_ = errOut
+	// Fork-level privacy opt-out: never upload CLI crash reports. The local
+	// report would otherwise stay pending forever, so clear it like a delete.
+	if err := crashreport.Remove(home, pending.ID); err != nil {
+		fmt.Fprintln(errOut, i18n.M.ErrorPrefix, err)
+		return 1
+	}
+	fmt.Fprintf(out, i18n.M.ReportDeletedFmt+"\n", pending.ID)
 	return 0
 }
 

@@ -75,26 +75,24 @@ func TestReportCommandInteractiveConfirmationPrivacyOptOut(t *testing.T) {
 	if calls != 0 {
 		t.Fatalf("privacy opt-out must not upload (calls=%d)", calls)
 	}
-	if _, err := crashreport.Load(home, pending.ID); err != nil {
-		t.Fatalf("privacy opt-out removed report: %v", err)
+	if _, err := crashreport.Load(home, pending.ID); !errors.Is(err, crashreport.ErrNoReports) {
+		t.Fatalf("privacy opt-out must clear the local report: %v", err)
 	}
 }
 
-func TestReportCommandPrivacyOptOutKeepsReport(t *testing.T) {
+func TestReportCommandPrivacyOptOutClearsReport(t *testing.T) {
 	home := isolateCLIReports(t)
 	pending := captureCLIReport(t, home)
-	previous := sendCLIReport
-	t.Cleanup(func() { sendCLIReport = previous })
-	sendCLIReport = func(context.Context, crashreport.Report, netclient.ProxySpec) error {
-		return errors.New("offline")
-	}
 
 	var out, errOut bytes.Buffer
 	if rc := reportCommandWithIO([]string{"send", pending.ID}, false, strings.NewReader(""), &out, &errOut); rc != 0 {
 		t.Fatalf("send rc=%d", rc)
 	}
-	if _, err := crashreport.Load(home, pending.ID); err != nil {
-		t.Fatalf("privacy opt-out removed report: %v", err)
+	if !strings.Contains(out.String(), "Deleted CLI crash report") {
+		t.Fatalf("output=%q", out.String())
+	}
+	if _, err := crashreport.Load(home, pending.ID); !errors.Is(err, crashreport.ErrNoReports) {
+		t.Fatalf("privacy opt-out must clear the local report: %v", err)
 	}
 }
 
