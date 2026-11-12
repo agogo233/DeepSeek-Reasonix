@@ -175,6 +175,8 @@ input,textarea{font:inherit;color:inherit}
 .ask__opt--selected{border-color:var(--accent);background:var(--accent-soft)}
 .ask__opt-label{font-size:12.5px;font-weight:500}
 .ask__opt-desc{font-size:11.5px;color:var(--fg-2);margin-top:1px}
+.ask__custom{width:100%;margin-top:4px;padding:8px 10px;background:var(--bg-2);border:1px solid var(--border);border-radius:6px;color:var(--fg);font-size:12.5px;font-family:inherit;box-sizing:border-box}
+.ask__custom:focus{outline:none;border-color:var(--accent)}
 .ask__submit{margin-top:8px;width:100%;padding:7px;background:var(--accent);color:oklch(99% 0 0);border-radius:6px;font-weight:600;font-size:12px;transition:background .18s ease}
 .ask__submit:hover{background:var(--accent-strong)}
 .ask__submit:disabled{background:var(--panel-2);color:var(--muted)}
@@ -730,6 +732,7 @@ const __T = {
     'tool_not_executed': 'not executed',
     'submit': 'Submit',
     'answer_failed': 'Failed to submit answer',
+    'ask_custom_placeholder': 'Custom answer…',
     'approval_title': 'Approval Required',
     'allow': 'Allow',
     'session': 'Allow for session',
@@ -894,6 +897,7 @@ const __T = {
     'tool_not_executed': '未执行',
     'submit': '提交',
     'answer_failed': '提交回答失败',
+    'ask_custom_placeholder': '自定义回答…',
     'approval_title': '需要批准',
     'allow': '允许',
     'session': '本会话允许',
@@ -1509,6 +1513,7 @@ function showAsk(ask) {
   // One selection set per question, indexed by question position (not id):
   // extension form fields may reuse/omit keys, while position is always stable.
   const selections=ask.questions.map(()=>new Set());
+  const customs=ask.questions.map(()=>null);
   ask.questions.forEach((q,qi)=>{
     const qDiv=el('div'); qDiv.appendChild(el('div','ask__prompt',q.prompt));
     const opts=el('div','ask__options'); const selected=selections[qi];
@@ -1517,29 +1522,36 @@ function showAsk(ask) {
       opt.onclick=()=>{if(q.multi){selected.has(i)?selected.delete(i):selected.add(i);opt.classList.toggle('ask__opt--selected',selected.has(i));}else{selected.clear();selected.add(i);opts.querySelectorAll('.ask__opt').forEach((o,j)=>o.classList.toggle('ask__opt--selected',j===i));}};
       opts.appendChild(opt);
     });
+    // A custom answer input sits after the last option, letting the user type a
+    // free-text answer instead of (or alongside) picking a listed option.
+    const custom=el('input','ask__custom'); custom.type='text'; custom.placeholder=__('ask_custom_placeholder');
+    customs[qi]=custom; opts.appendChild(custom);
     qDiv.appendChild(opts); d.appendChild(qDiv);
   });
   // A single submit answers the whole batch at once, matching the controller's
   // one-shot Ask contract. A question without options (a free-text extension
   // field) cannot be satisfied by a click, so it counts as already answered.
   const submit=el('button','ask__submit',__('submit')); submit.disabled=true;
-  const refresh=()=>{submit.disabled=!ask.questions.every((q,qi)=>q.options.length===0||selections[qi].size>0);};
+  let submitting=false;
+  const refresh=()=>{if(submitting)return;submit.disabled=!ask.questions.every((q,qi)=>q.options.length===0||selections[qi].size>0||customs[qi].value.trim()!=='');};
   d.addEventListener('click',refresh);
   submit.onclick=e=>{
     // The click would otherwise bubble to d and let refresh re-enable the button
     // while the request is in flight, breaking duplicate-submit protection.
     e.stopPropagation();
+    submitting=true;
     submit.disabled=true;
-    const answers=ask.questions.map((q,qi)=>({questionId:q.id,selected:Array.from(selections[qi]).map(i=>q.options[i].label)}));
+    const answers=ask.questions.map((q,qi)=>{const sel=Array.from(selections[qi]).map(i=>q.options[i].label);const t=customs[qi].value.trim();if(t)sel.push(t);return {questionId:q.id,selected:sel};});
     post('/answer',{id:ask.id,answers}).then(r=>{
       if(r.ok){cleanup();return;}
       // A failed ledger write leaves the prompt pending and retryable; keep the
       // card so the user can resubmit instead of stranding the question.
-      submit.disabled=false;
+      submitting=false; submit.disabled=false;
       showNotice(__('answer_failed')+' (HTTP '+r.status+')','warn');
     });
   };
   d.appendChild(submit);
+  customs.forEach(c=>{if(c)c.addEventListener('input',refresh);});
   refresh();
   log.appendChild(d);scrollDown(true);
   pendingPrompts.push(cleanup);
