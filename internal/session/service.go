@@ -134,6 +134,10 @@ func initializeRuntime(ref SessionRef, session *Session) (*Runtime, error) {
 	if restored.TurnID != "" && !restored.Status.Terminal() {
 		// A persisted open turn is recovery evidence, not a running model.
 		restored.Status = event.TurnRecoveryRequired
+		// A tool call the interrupted turn left without a result (for example
+		// the model waiting on an ask answer) would otherwise render as a
+		// perpetual unknown card. Close it so the restored snapshot settles.
+		runtime.transcript.RecoverUnresolvedToolCalls()
 	}
 	if restored.TurnID == "" && len(session.projection.Turns) > 0 {
 		last := session.projection.Turns[len(session.projection.Turns)-1]

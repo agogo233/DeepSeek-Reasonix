@@ -4,6 +4,7 @@ import type { TranscriptRecord, TranscriptSnapshot } from "./transcriptProtocol"
 import { canonicalUserConfirmations, settleLocalSubmissions, settleRebasedSubmissions } from "./localSubmissionState";
 import { mergeSessionOperationItem, reconcileSessionOperationItems } from "./sessionMaintenanceOperation";
 import { resetTurnTiming } from "./submissionReducer";
+import { t } from "./i18n";
 
 export function snapshotRecords(snapshot: TranscriptSnapshot): TranscriptRecord[] {
   if (!Number.isSafeInteger(snapshot.totalRecords) || snapshot.totalRecords < 0) {
@@ -147,6 +148,21 @@ export function transcriptSnapshotState(state: State, snapshot: TranscriptSnapsh
   });
   const hasLocalSubmission = Boolean(state.pendingSubmissionId && state.localSubmissions[state.pendingSubmissionId]
     && state.localSubmissions[state.pendingSubmissionId].status !== "failed");
+  const recovered = snapshot.runtime.status === "recovery_required";
+  // A restarted service leaves the interrupted turn in recovery_required. The
+  // backend closes the dangling ask and emits a cancelled-turn notice, but an
+  // older server (or a turn with no tool call) may not; surface the same
+  // explanation so the session never looks permanently stuck.
+  const recoveryNoticeId = `recovery-${sessionId}-${snapshot.runtime.turnId ?? ""}`;
+  const hasCancelledNotice = recovered && (items.some(item =>
+    item.kind === "notice" && item.code === "cancelled_turn_display")
+    // The fallback notice is synthetic and never comes back through the
+    // records-derived view, so a re-applied snapshot must recognize it by its
+    // session-scoped id instead of stacking a duplicate.
+    || state.items.some(item => item.id === recoveryNoticeId));
+  const recoveryItems: Item[] = recovered && !hasCancelledNotice
+    ? [{ kind: "notice", id: recoveryNoticeId, level: "info", code: "cancelled_turn_display", text: t("notice.cancelledTurnDisplay") }]
+    : [];
   let next: State = {
     ...state,
     ...(!sameTurn ? resetTurnTiming(snapshot.runtime.startedAt ?? 0) : {}),
@@ -164,8 +180,8 @@ export function transcriptSnapshotState(state: State, snapshot: TranscriptSnapsh
     assistantSegmentOrdinal: active ? 1 : 0,
     turnStartAt: snapshot.runtime.startedAt ?? (state.activeTurnId === snapshot.runtime.turnId ? state.turnStartAt : 0),
     resolvedPromptId: undefined,
-    items: [...items, ...users.filter(user => user.failed && !items.some(item => item.id === user.id)),
-      ...state.items.filter(item => item.kind === "notice" && item.local)],
+    items: [...items, ...recoveryItems, ...users.filter(user => user.failed && !items.some(item => item.id === user.id)),
+      ...state.items.filter(item => item.kind === "notice" && (item.local || (recovered && item.id === recoveryNoticeId)))],
     offscreenItems: undefined,
     seq: Math.max(state.seq, converted.seq),
     running: active || hasLocalSubmission,
