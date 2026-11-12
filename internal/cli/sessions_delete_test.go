@@ -120,17 +120,18 @@ func TestSessionsDeleteV4DirDirect(t *testing.T) {
 
 func TestSessionsDeleteOlderThanApplies(t *testing.T) {
 	sessionDir, v4root := setupSessionDeleteStore(t)
-	// 1ns ago is before every just-created session's UpdatedAt, so the age
-	// filter alone matches the whole store (including the filled session).
-	report, code := runSessionsDelete(t, "--dir", sessionDir, "--older-than", "1ns", "--apply", "--json")
+	// Fresh sessions are not idle for an hour, so the age filter matches
+	// nothing and never mistakes a just-created (or cold-metadata) session
+	// for an ancient one.
+	report, code := runSessionsDelete(t, "--dir", sessionDir, "--older-than", "1h", "--apply", "--json")
 	if code != 0 {
 		t.Fatalf("exit code = %d", code)
 	}
-	if report.Deleted != 3 {
-		t.Fatalf("deleted = %d, want 3", report.Deleted)
+	if report.Deleted != 0 {
+		t.Fatalf("deleted = %d, want 0 (fresh sessions are not an hour old)", report.Deleted)
 	}
-	if got := sessionIDsInRoot(t, v4root); len(got) != 0 {
-		t.Fatalf("remaining sessions = %v, want none", got)
+	if got := sessionIDsInRoot(t, v4root); len(got) != 3 {
+		t.Fatalf("remaining sessions = %v, want all three", got)
 	}
 }
 

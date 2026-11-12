@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"math"
@@ -12,20 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"reasonix/internal/identitylock"
 	"reasonix/internal/session"
 )
 
 const (
-	// sessionDeletePageLimit is the catalog cursor page size. The walk follows
-	// the cursor to the end without an artificial row ceiling; a broken cursor
-	// is caught by the strict-advance check rather than silently truncating the
-	// accumulated serve-created sessions a user asks to prune.
-	sessionDeletePageLimit = 100
-	// sessionDeleteLockTimeout bounds one delete against a resident serve that
-	// holds the session's writer lock. Busy sessions are skipped, not waited on
-	// forever.
-	sessionDeleteLockTimeout = 5 * time.Second
 	// sessionDeletePreviewRows caps how many matching session ids the text
 	// report prints, so a dry run over thousands of sessions stays readable.
 	sessionDeletePreviewRows = 5
@@ -113,9 +102,11 @@ type sessionDeleteFilters struct {
 }
 
 // runSessionDeleteDirectory walks one canonical store and deletes every
-// session matching the filters. It maps the legacy dir to its sibling
-// sessions-v4 root the same way the serve and CLI surfaces do, so the command
-// cleans exactly the sessions `reasonix serve` creates.
+// session matching the filters, delegating the traversal and classification
+// to the shared session.Prune so the CLI and web UI report identical numbers.
+// It maps the legacy dir to its sibling sessions-v4 root the same way the
+// serve and CLI surfaces do, so the command cleans exactly the sessions
+// `reasonix serve` creates.
 func runSessionDeleteDirectory(ctx context.Context, dir string, filters sessionDeleteFilters, apply bool, report *sessionDeleteReport) {
 	root := sessionStoreRootForCleanup(dir)
 	if root == "" {
@@ -134,99 +125,19 @@ func runSessionDeleteDirectory(ctx context.Context, dir string, filters sessionD
 	// spawned, in addition to releasing any runtime. It is the lifecycle
 	// boundary for a short-lived cleanup process.
 	defer func() { _ = service.Shutdown(context.Background()) }()
-	query := service.Query()
-	if query == nil {
-		report.Errors = append(report.Errors, fmt.Sprintf("no query for %s", root))
-		return
-	}
-	matches := []session.SessionRef{}
-	cursor := ""
-	for {
-		page, err := query.List(ctx, cursor, sessionDeletePageLimit)
-		if err != nil {
-			report.Errors = append(report.Errors, fmt.Sprintf("list %s: %v", root, err))
-			return
-		}
-		for i := range page.Sessions {
-			info := page.Sessions[i]
-			if !sessionDeleteMatches(ctx, query, info, filters, report) {
-				continue
-			}
-			report.Matched++
-			matches = append(matches, info.Ref)
-		}
-		if page.NextCursor == "" {
-			break
-		}
-		if page.NextCursor <= cursor {
-			report.Errors = append(report.Errors, fmt.Sprintf("list %s: catalog cursor did not advance", root))
-			return
-		}
-		cursor = page.NextCursor
-	}
-	for _, ref := range matches {
-		if apply {
-			if !deleteSessionCandidate(ctx, service, ref, report) {
-				continue
-			}
-		}
-		report.Deleted++
-		report.DeletedSessionID = append(report.DeletedSessionID, ref.SessionID)
-	}
-}
-
-// sessionDeleteMatches applies the AND-ed filters to one catalog row. The
-// empty filter refreshes metadata synchronously before trusting a zero turn
-// count, because a cold catalog row can report Turns==0 while the event log
-// still holds completed turns. Sessions whose refresh fails are counted as
-// unknown and left alone.
-func sessionDeleteMatches(ctx context.Context, query *session.Query, info session.SessionInfo, filters sessionDeleteFilters, report *sessionDeleteReport) bool {
-	if filters.empty {
-		if info.Turns > 0 {
-			return false
-		}
-		refreshed, err := query.RefreshMetadata(ctx, info.Ref)
-		if err != nil {
-			report.Unknown++
-			return false
-		}
-		if refreshed.Turns > 0 {
-			return false
-		}
-	}
-	if !filters.cutoff.IsZero() && !info.UpdatedAt.Before(filters.cutoff) {
-		return false
-	}
-	return true
-}
-
-// deleteSessionCandidate deletes one session with a bounded lock wait and
-// classifies a resident-serve hold as busy rather than an error. The service
-// closes any local runtime first, so this path never deletes a directory out
-// from under a writer; a foreign process that holds the writer lock simply
-// times out and is reported as busy.
-func deleteSessionCandidate(ctx context.Context, service *session.Service, ref session.SessionRef, report *sessionDeleteReport) bool {
-	deleteCtx, cancel := context.WithTimeout(ctx, sessionDeleteLockTimeout)
-	defer cancel()
-	err := service.Delete(deleteCtx, ref)
-	if err == nil {
-		return true
-	}
-	switch {
-	case errors.Is(err, context.DeadlineExceeded),
-		errors.Is(err, identitylock.ErrHeld),
-		errors.Is(err, session.ErrRuntimeBusy),
-		errors.Is(err, session.ErrRuntimeBound):
-		report.Busy++
-		report.BusySessionID = append(report.BusySessionID, ref.SessionID)
-		return false
-	case errors.Is(err, session.ErrSessionNotFound):
-		report.AlreadyDeleted++
-		return false
-	default:
-		report.Errors = append(report.Errors, fmt.Sprintf("delete %s: %v", ref.SessionID, err))
-		return false
-	}
+	prune := service.Prune(ctx, session.PruneOptions{
+		EmptyOnly: filters.empty,
+		Cutoff:    filters.cutoff,
+		DryRun:    !apply,
+	})
+	report.Matched += prune.Matched
+	report.Deleted += prune.Deleted
+	report.Busy += prune.Busy
+	report.Unknown += prune.Unknown
+	report.AlreadyDeleted += prune.AlreadyDeleted
+	report.Errors = append(report.Errors, prune.Errors...)
+	report.DeletedSessionID = append(report.DeletedSessionID, prune.DeletedSessionID...)
+	report.BusySessionID = append(report.BusySessionID, prune.BusySessionID...)
 }
 
 // sessionStoreRootForCleanup resolves the canonical store root a cleanup
