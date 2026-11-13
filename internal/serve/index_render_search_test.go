@@ -164,3 +164,65 @@ func TestServeIndexJumpLatest(t *testing.T) {
 		}
 	}
 }
+
+// Web UX enhancements share one assertion block: toasts for UI feedback, a
+// per-message copy control, composer draft persistence, and session rename.
+func TestServeIndexWebUXEnhancements(t *testing.T) {
+	html := string(indexHTML)
+	for _, want := range []string{
+		// toasts: fixed container outside #log, show state, warn variant
+		`<div class="toasts" id="toasts" aria-live="polite"></div>`,
+		".toasts{position:fixed;right:18px;bottom:18px",
+		".toast--show{opacity:1",
+		".toast--warn{border-left-color:var(--warning)",
+		"function toast(text, tone) {",
+		"if(!box){ showNotice(text, tone); return; }",
+		"toast(__('cannot_delete_active'),'warn')",
+		// conversation-flow notices must stay in the transcript
+		"showNotice('⏸ '+__('recovery_paused'))",
+		"showNotice(__('search_sources_missing'))",
+		// per-message copy: raw markdown preferred, rendered text while streaming
+		"function legacyCopy(text) {",
+		"function buildMsgCopy(msgEl) {",
+		"h.appendChild(buildMsgCopy(currentMsg));",
+		"if(currentMsg) currentMsg.dataset.raw=currentRaw;",
+		"msgEl.querySelector(':scope > .msg__text')",
+		"copyText(msgEl.dataset.raw||body.innerText||body.textContent||'')",
+		".msg-copy{display:inline-flex",
+		"'copy_msg': 'Copy message'",
+		"'copy_msg': '复制消息'",
+		// composer draft persistence: per-session key, guarded storage access
+		"function draftKey() {",
+		"if(!sessionsCache.length) return null;",
+		"function saveDraft() { const k=draftKey(); if(!k)return; try{ localStorage.setItem(k, input.value); }catch{} }",
+		"function clearDraft() { draftLoadedFor=null; const k=draftKey(); if(!k)return; try{ localStorage.removeItem(k); }catch{} }",
+		"function restoreDraft() {",
+		"'reasonix.draft.'",
+		"if(!k||k===draftLoadedFor) return;",
+		`restoreDraft();
+  const list=$('#session-list'); if(!list)return;`,
+		"saveDraft();updateSlashMenu();",
+		"closeSlashMenu();clearDraft();",
+		// auth failure is a persistent state the user must act on: it stays a
+		// transcript notice rather than a self-dismissing toast.
+		"showNotice(error instanceof Error?error.message:__('auth_failed'),'warn');",
+		// session rename: canonical rows only, modal + endpoint wiring
+		`id="rename-modal"`,
+		".session-rename{flex-shrink:0;display:none",
+		".dialog-btn--primary{background:var(--accent)",
+		"s.sessionId?'<button type=\"button\" class=\"session-rename\"",
+		"ev.target.closest('.session-del,.session-rename')",
+		"function openRenameSession(s)",
+		"post('/rename-session',{sessionId:s.sessionId,title})",
+		"'rename_session': 'Rename Session'",
+		"'rename_session': '重命名会话'",
+		"'rename_done': 'Session renamed'",
+		"'rename_done': '会话已重命名'",
+		"'save': 'Save'",
+		"'save': '保存'",
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("serve index missing web-ux marker %q", want)
+		}
+	}
+}

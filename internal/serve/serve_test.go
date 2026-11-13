@@ -444,9 +444,9 @@ func TestServeIndexReportsSessionDeleteFailures(t *testing.T) {
 		"'cannot_delete_active': '无法删除当前会话'",
 		"'delete_failed': 'Could not delete the session. Check your connection and try again.'",
 		"'delete_failed': '无法删除会话，请检查连接后重试'",
-		"if(target&&target.current){showNotice(__('cannot_delete_active'),'warn');return;}",
-		"if(!r.ok){showNotice((await r.text()).trim()||('HTTP '+r.status),'warn');}",
-		"}).catch(()=>showNotice(__('delete_failed'),'warn'));",
+		"if(target&&target.current){toast(__('cannot_delete_active'),'warn');return;}",
+		"if(!r.ok){toast((await r.text()).trim()||('HTTP '+r.status),'warn');}",
+		"}).catch(()=>toast(__('delete_failed'),'warn'));",
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("serve index missing session delete failure handling %q", want)

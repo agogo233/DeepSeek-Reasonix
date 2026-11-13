@@ -593,6 +593,7 @@ func (s *Server) handler() http.Handler {
 	mux.HandleFunc("GET /pending-prompts", s.pendingPrompts)
 	mux.HandleFunc("GET /skills", s.skills)
 	mux.HandleFunc("GET /todos", s.todos)
+	mux.HandleFunc("POST /rename-session", s.renameSession)
 	mux.HandleFunc("POST /delete-session", s.deleteSession)
 	mux.HandleFunc("POST /delete-sessions", s.deleteSessions)
 	return logMiddleware(gzipMiddleware(s.auth.middleware(s.hostGuard(csrfGuard(s.auth.mutationGate(mux))))))

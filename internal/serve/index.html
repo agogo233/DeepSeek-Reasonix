@@ -91,6 +91,11 @@ input,textarea{font:inherit;color:inherit}
 .msg--assistant{color:var(--fg);line-height:1.7;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px 14px;box-shadow:var(--shadow-sm)}
 .msg--assistant .msg__text{font-weight:400}
 .msg__head{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.msg-copy{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin-left:auto;border:none;background:none;color:var(--muted-2);cursor:pointer;border-radius:5px;opacity:0;transition:opacity .15s ease,background .15s ease,color .15s ease;flex-shrink:0}
+.msg__head:hover .msg-copy,.msg-copy:focus-visible{opacity:1}
+.msg-copy:hover{background:var(--card-hover);color:var(--fg)}
+.msg-copy--done{color:var(--success);opacity:1}
+.msg-copy svg{width:12px;height:12px}
 .msg__dot{width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--violet));flex-shrink:0}
 .msg--system{max-width:760px;font-size:13px;color:var(--fg-2);border-left:2px solid var(--border);padding:4px 12px;margin:8px auto}
 .msg--error{max-width:760px;font-size:13px;color:var(--danger);border-left:2px solid var(--danger);padding:6px 12px;margin:8px auto;background:var(--danger-soft);border-radius:0 var(--radius) var(--radius) 0}
@@ -329,6 +334,13 @@ input,textarea{font:inherit;color:inherit}
 .session-del{flex-shrink:0;padding:2px 6px;color:var(--muted-2);font-size:14px;line-height:1;display:none}
 .session-item:hover .session-del,.session-del:focus-visible{display:inline-flex}
 .session-del:hover{color:var(--danger)}
+.session-rename{flex-shrink:0;display:none;align-items:center;justify-content:center;width:20px;height:20px;padding:0;border:none;background:none;color:var(--muted-2);cursor:pointer;border-radius:5px;transition:background .15s ease,color .15s ease}
+.session-item:hover .session-rename,.session-rename:focus-visible{display:inline-flex}
+.session-rename:hover{background:var(--card-hover);color:var(--fg)}
+.session-rename svg{width:12px;height:12px}
+.rename-input{width:100%;background:var(--bg-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--fg);font-size:13px;padding:8px 10px;outline:none;transition:border-color .18s ease,box-shadow .18s ease}
+.rename-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.dialog-btn--primary{background:var(--accent);border-color:transparent;color:oklch(99% 0 0)}
 
 @media(max-width:768px){
   .app{grid-template-columns:1fr}
@@ -359,6 +371,11 @@ input,textarea{font:inherit;color:inherit}
 
 /* stats modal */
 .modal-overlay{position:fixed;inset:0;background:oklch(0% 0 0/.55);display:flex;align-items:center;justify-content:center;z-index:200;animation:msg-in .15s ease}
+/* toasts: transient UI feedback, kept out of the transcript on purpose */
+.toasts{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:300;pointer-events:none;max-width:min(360px,80vw)}
+.toast{pointer-events:auto;background:var(--panel);border:1px solid var(--border-strong);border-left:3px solid var(--accent);border-radius:9px;padding:9px 13px;font-size:12.5px;line-height:1.45;color:var(--fg);box-shadow:var(--shadow-md);opacity:0;transform:translateY(6px);transition:opacity .18s ease,transform .18s ease}
+.toast--show{opacity:1;transform:none}
+.toast--warn{border-left-color:var(--warning)}
 .modal{background:var(--panel);border:1px solid var(--border-strong);border-radius:var(--radius-lg);width:min(520px,90vw);max-height:80vh;overflow-y:auto;box-shadow:var(--shadow-lg)}
 .modal__head{padding:14px 16px;border-bottom:1px solid var(--border);font-family:var(--heading);font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px}
 .modal__body{padding:14px 16px}
@@ -696,6 +713,22 @@ mark.srch--cur{background:var(--accent);color:oklch(99% 0 0)}
     </div>
   </div>
 </div>
+<!-- session rename modal -->
+<div class="modal-overlay" id="rename-modal" style="display:none">
+  <div class="modal">
+    <div class="modal__head">
+      __('rename_session')
+      <span class="modal__close" id="rename-modal-close">&times;</span>
+    </div>
+    <div class="modal__body">
+      <input class="rename-input" id="rename-input" type="text" maxlength="200" placeholder="__('rename_placeholder')">
+      <div class="dialog-actions">
+        <button class="dialog-btn" id="rename-cancel" type="button">__('cancel_plain')</button>
+        <button class="dialog-btn dialog-btn--primary" id="rename-confirm" type="button">__('save')</button>
+      </div>
+    </div>
+  </div>
+</div>
 <!-- prune confirmation modal -->
 <div class="modal-overlay" id="prune-modal" style="display:none">
   <div class="modal">
@@ -715,6 +748,7 @@ mark.srch--cur{background:var(--accent);color:oklch(99% 0 0)}
     </div>
   </div>
 </div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
 <script>
 // ── i18n ──
 const __LANG_PREF = '__LANG__';
@@ -769,6 +803,7 @@ const __T = {
     'search_close': 'Close',
     'search_no_matches': 'No matches',
     'copy_code': 'Copy code',
+    'copy_msg': 'Copy message',
     'copied': 'Copied',
     'cmd_compact': 'Compact conversation',
     'cmd_new': 'New session',
@@ -847,6 +882,11 @@ const __T = {
     'delete_session': 'Delete Session',
     'cannot_delete_active': 'Cannot delete the active session',
     'delete_failed': 'Could not delete the session. Check your connection and try again.',
+    'rename_session': 'Rename Session',
+    'rename_done': 'Session renamed',
+    'rename_failed': 'Could not rename the session',
+    'rename_placeholder': 'New title',
+    'save': 'Save',
     'auth_failed': 'Web authentication failed',
     'launch_token_required': 'This change needs the launch token. Open the approvals link reasonix serve printed (its token is in the file it names), then retry.',
     'search_sessions': 'Search sessions',
@@ -945,6 +985,7 @@ const __T = {
     'search_close': '关闭',
     'search_no_matches': '无匹配',
     'copy_code': '复制代码',
+    'copy_msg': '复制消息',
     'copied': '已复制',
     'cmd_compact': '压缩对话',
     'cmd_new': '新建会话',
@@ -1023,6 +1064,11 @@ const __T = {
     'delete_session': '删除会话',
     'cannot_delete_active': '无法删除当前会话',
     'delete_failed': '无法删除会话，请检查连接后重试',
+    'rename_session': '重命名会话',
+    'rename_done': '会话已重命名',
+    'rename_failed': '重命名会话失败',
+    'rename_placeholder': '新标题',
+    'save': '保存',
     'auth_failed': 'Web 认证失败',
     'launch_token_required': '这项修改需要本次启动的令牌。请打开 reasonix serve 启动时打印的 approvals 链接（令牌在它指明的文件里），然后重试。',
     'search_sessions': '搜索会话',
@@ -1144,7 +1190,7 @@ function noticeLaunchTokenRefusal(response){
   response.clone().json().then(body=>{
     if(body?.code!=='launch_token_required'||Date.now()-__launchTokenNoticeAt<5000)return;
     __launchTokenNoticeAt=Date.now();
-    showNotice(__('launch_token_required'),'warn');
+    toast(__('launch_token_required'),'warn');
   }).catch(()=>{});
   return response;
 }
@@ -1263,6 +1309,18 @@ function showNotice(text, tone) {
   log.appendChild(n);
   scrollDown(true); // synchronous feedback to a user action — always reveal
 }
+// Toasts report the outcome of UI actions (delete, prune, rename, reload…).
+// Conversation-flow events stay in the transcript via showNotice; toasts float
+// above the app and auto-dismiss so they never pollute the message history.
+function toast(text, tone) {
+  const box = document.getElementById('toasts');
+  if(!box){ showNotice(text, tone); return; }
+  const t = el('div', 'toast'+(tone==='warn'?' toast--warn':''), text);
+  box.appendChild(t);
+  while(box.children.length>4) box.removeChild(box.firstChild);
+  requestAnimationFrame(()=>t.classList.add('toast--show'));
+  setTimeout(()=>{ t.classList.remove('toast--show'); setTimeout(()=>t.remove(),200); }, tone==='warn'?5000:2600);
+}
 function showFinalReadinessPause(readiness){
   hideWelcome();
   const card=el('div','readiness-card');
@@ -1279,7 +1337,7 @@ function showFinalReadinessPause(readiness){
     const response=await post('/submit',{input:prompt,action:'final_readiness_recovery'});
     if(response.ok){card.remove();return;}
     button.disabled=false;
-    showNotice((await response.text()).trim()||'Recovery was not accepted.','warn');
+    toast((await response.text()).trim()||'Recovery was not accepted.','warn');
   };
   card.appendChild(button);log.appendChild(card);scrollDown(true);
 }
@@ -1292,7 +1350,7 @@ function showProtocolRecovery(action){
     button.disabled=true;
     const response=await post('/submit',{action:'protocol_recovery',recoveryId:action.id,input:''});
     if(response.ok){card.remove();return;}
-    button.disabled=false;showNotice((await response.text()).trim(),'warn');
+    button.disabled=false;toast((await response.text()).trim(),'warn');
   };
   card.appendChild(button);log.appendChild(card);scrollDown(true);
 }
@@ -1349,7 +1407,20 @@ function setConnState(state) {
 
 // ── messages ──
 function addUserMsg(text) { hasVisibleHistory=true; updateActionAvailability(); hideWelcome(); const d=el('div','msg msg--user'); d.appendChild(el('span','msg__caret','›')); d.appendChild(el('div','msg__text',text)); log.appendChild(d); scrollDown(true); currentMsg=null;currentText=null;currentReasoning=null;currentRaw='';currentReasoningRaw='';currentPlain=false;currentCursor=null; }
-function ensureMsg() { if(!currentMsg){hasVisibleHistory=true; updateActionAvailability(); hideWelcome();currentMsg=el('div','msg msg--assistant');const h=el('div','msg__head');h.appendChild(el('span','msg__dot'));h.appendChild(document.createTextNode('Reasonix'));currentMsg.appendChild(h);log.appendChild(currentMsg);} return currentMsg; }
+// Per-message copy: prefers the raw markdown stored on the element at finalize
+// time, falling back to the rendered text while a turn is still streaming.
+function buildMsgCopy(msgEl) {
+  const b=el('button','msg-copy'); b.type='button'; b.title=__('copy_msg'); b.setAttribute('aria-label',__('copy_msg'));
+  b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+  b.onclick=async e=>{
+    e.stopPropagation();
+    const body=msgEl.querySelector(':scope > .msg__text'); if(!body)return;
+    const ok=await copyText(msgEl.dataset.raw||body.innerText||body.textContent||'');
+    if(ok){ b.classList.add('msg-copy--done'); setTimeout(()=>b.classList.remove('msg-copy--done'),1200); }
+  };
+  return b;
+}
+function ensureMsg() { if(!currentMsg){hasVisibleHistory=true; updateActionAvailability(); hideWelcome();currentMsg=el('div','msg msg--assistant');const h=el('div','msg__head');h.appendChild(el('span','msg__dot'));h.appendChild(document.createTextNode('Reasonix'));h.appendChild(buildMsgCopy(currentMsg));currentMsg.appendChild(h);log.appendChild(currentMsg);} return currentMsg; }
 function mdRenderNow() {
   if(currentRenderTimer){ clearTimeout(currentRenderTimer); currentRenderTimer=0; }
   if(!currentMsg) return;
@@ -1397,6 +1468,9 @@ function flushReasoningNow() {
 }
 function finalizeMsg() {
   mdRenderNow();
+  // Keep the source markdown on the element so the per-message copy button
+  // can hand back the raw text even after the streaming refs are cleared.
+  if(currentMsg) currentMsg.dataset.raw=currentRaw;
   if(currentCursor){ currentCursor.remove(); currentCursor=null; }
   currentMsg=null;currentText=null;currentReasoning=null;
   currentRaw='';currentReasoningRaw='';currentPlain=false;
@@ -1433,8 +1507,18 @@ function setToolStatus(card, tone, label) {
 }
 function copyText(text) {
   if(!text)return Promise.resolve(false);
-  if(navigator.clipboard?.writeText)return navigator.clipboard.writeText(text).then(()=>true).catch(()=>false);
-  return Promise.resolve(false);
+  if(navigator.clipboard?.writeText)return navigator.clipboard.writeText(text).then(()=>true).catch(()=>legacyCopy(text));
+  return Promise.resolve(legacyCopy(text));
+}
+// Plain-HTTP deployments expose no navigator.clipboard; fall back to the
+// legacy textarea trick so code blocks and messages stay copyable there too.
+function legacyCopy(text) {
+  try{
+    const t=document.createElement('textarea');
+    t.value=text; t.setAttribute('readonly',''); t.style.position='fixed'; t.style.opacity='0';
+    document.body.appendChild(t); t.select(); t.setSelectionRange(0,text.length);
+    const ok=document.execCommand('copy'); t.remove(); return ok;
+  }catch{ return false; }
 }
 
 // ── markdown renderer (safe: escape-first, URL scheme allowlist) ──
@@ -1921,7 +2005,7 @@ const SCOPES = [
 function openRewindPicker() {
   fetch('/checkpoints').then(r=>r.json()).then(cps=>{
     checkpointCount=Array.isArray(cps)?cps.length:0; updateActionAvailability();
-    if(!cps||cps.length===0){showNotice(__('no_checkpoints'),'warn');return;}
+    if(!cps||cps.length===0){toast(__('no_checkpoints'),'warn');return;}
     rewindCheckpoints=cps; rewindStage=0; rewindSelected=0; rewindScope=0;
     renderRewindPicker();
   }).catch(()=>{});
@@ -2182,6 +2266,33 @@ function renderHistoryMessages(ms){
 }
 fetch('/history').then(r=>r.json()).then(msgs=>{renderHistoryMessages(msgs);fetchTodos();}).catch(()=>{});
 
+// ── composer draft persistence ──
+// Drafts are keyed per session so switching conversations restores the right
+// pending text, and are cleared on send so only unsent drafts linger. Access
+// is guarded because some environments reject localStorage outright.
+let draftLoadedFor=null;
+// Returns null until the session list has loaded, so a keystroke typed during
+// startup is never stranded under the shared "default" key and later replayed
+// against the wrong session.
+function draftKey() {
+  if(!sessionsCache.length) return null;
+  const cur = sessionsCache.find(s=>s.current);
+  const id = cur && (cur.sessionId||cur.name);
+  return 'reasonix.draft.'+(id||'default');
+}
+function saveDraft() { const k=draftKey(); if(!k)return; try{ localStorage.setItem(k, input.value); }catch{} }
+function clearDraft() { draftLoadedFor=null; const k=draftKey(); if(!k)return; try{ localStorage.removeItem(k); }catch{} }
+// Only writes when the session identity changed, so re-rendering the sidebar
+// while the user is typing never clobbers the composer. Sets the value
+// directly (no input event) so a "/" draft does not pop the slash menu.
+function restoreDraft() {
+  const k=draftKey();
+  if(!k||k===draftLoadedFor) return;
+  draftLoadedFor=k;
+  let v=''; try{ v=localStorage.getItem(k)||''; }catch{}
+  if(input.value!==v){ input.value=v; input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,140)+'px'; }
+}
+
 // ── session list ──
 let sessionCount=0;
 function sessionTitle(s){
@@ -2189,6 +2300,7 @@ function sessionTitle(s){
   return s.title||name.replace(/^\w+-/,'').replace(/T/,' ').replace(/[-_]/g,' ').slice(0,30);
 }
 function renderSessions(){
+  restoreDraft();
   const list=$('#session-list'); if(!list)return;
   const count=$('#session-count');
   const q=sessionFilter.trim().toLowerCase();
@@ -2208,8 +2320,8 @@ function renderSessions(){
     const item=el('div','session-item'+(s.current?' session-item--active':''));
     const title=sessionTitle(s);
     const meta=s.turns?s.turns+' turns':'';
-    item.innerHTML='<svg class="session-item__icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div class="session-item__body"><div class="session-item__title">'+escHtml(title)+'</div><div class="session-item__meta">'+escHtml(meta)+'</div></div><button type="button" class="session-del" data-name="'+escAttr(s.name)+'" title="'+escAttr(__('delete_session'))+'">&times;</button>';
-    item.onclick=ev=>{if(ev.target.closest('.session-del')||running||s.current)return;post('/resume',{path:s.path,sessionId:s.sessionId,hostId:s.hostId,name:s.name}).then(async r=>{if(!r.ok){const detail=(await r.text().catch(()=>'')).trim();showNotice(__('resume_failed')+' (HTTP '+r.status+(detail?': '+detail:'')+')','warn');return;}log.innerHTML='';log.appendChild(welcome);showWelcome();hasVisibleHistory=false;checkpointCount=0;todosDismissed=false;resetCumulativeStats();loadSessions();fetchStatus();updateActionAvailability();setTimeout(()=>fetch('/history').then(r=>r.json()).then(msgs=>{renderHistoryMessages(msgs);fetchTodos();refreshCheckpointAvailability();}),300);}).catch(()=>showNotice(__('resume_failed'),'warn'));};
+    item.innerHTML='<svg class="session-item__icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div class="session-item__body"><div class="session-item__title">'+escHtml(title)+'</div><div class="session-item__meta">'+escHtml(meta)+'</div></div>'+(s.sessionId?'<button type="button" class="session-rename" data-name="'+escAttr(s.name)+'" title="'+escAttr(__('rename_session'))+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>':'')+'<button type="button" class="session-del" data-name="'+escAttr(s.name)+'" title="'+escAttr(__('delete_session'))+'">&times;</button>';
+    item.onclick=ev=>{if(ev.target.closest('.session-del,.session-rename')||running||s.current)return;post('/resume',{path:s.path,sessionId:s.sessionId,hostId:s.hostId,name:s.name}).then(async r=>{if(!r.ok){const detail=(await r.text().catch(()=>'')).trim();toast(__('resume_failed')+' (HTTP '+r.status+(detail?': '+detail:'')+')','warn');return;}log.innerHTML='';log.appendChild(welcome);showWelcome();hasVisibleHistory=false;checkpointCount=0;todosDismissed=false;resetCumulativeStats();loadSessions();fetchStatus();updateActionAvailability();setTimeout(()=>fetch('/history').then(r=>r.json()).then(msgs=>{renderHistoryMessages(msgs);fetchTodos();refreshCheckpointAvailability();}),300);}).catch(()=>toast(__('resume_failed'),'warn'));};
     list.appendChild(item);
   });
 }
@@ -2316,11 +2428,11 @@ async function syncModeBeforeSubmit(){
 async function send(){
   const v=input.value.trim(); if(!v)return;
   if(v==='/reload'){
-    input.value='';input.style.height='';closeSlashMenu();
-    showNotice(__('extensions_reloading'));
+    input.value='';input.style.height='';closeSlashMenu();clearDraft();
+    toast(__('extensions_reloading'));
     const response=await post('/extensions/reload',{});
-    if(response.ok){showNotice(__('extensions_reloaded'));fetchStatus();}
-    else{showNotice((await response.text()).trim()||__('extensions_reload_failed'),'warn');}
+    if(response.ok){toast(__('extensions_reloaded'));fetchStatus();}
+    else{toast((await response.text()).trim()||__('extensions_reload_failed'),'warn');}
     return;
   }
   await syncModeBeforeSubmit();
@@ -2337,10 +2449,10 @@ async function send(){
   }
   addUserMsg(v);
   post('/submit',{input:submitInput}).then(r=>{if(r.ok&&r.status===204){fetchStatus();loadSessions();}});
-  input.value='';input.style.height='';closeSlashMenu();
+  input.value='';input.style.height='';closeSlashMenu();clearDraft();
 }
 
-input.addEventListener('input',()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,140)+'px';updateSlashMenu();});
+input.addEventListener('input',()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,140)+'px';saveDraft();updateSlashMenu();});
 input.addEventListener('keydown',e=>{
   // slash menu nav
   if(slashOpen){
@@ -2352,7 +2464,7 @@ input.addEventListener('keydown',e=>{
   // main keys
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();return;}
   if(e.key==='Escape'){
-    if(goalMode&&!running){goalMode=false;updateGoalUI();input.value='';closeSlashMenu();return;}
+    if(goalMode&&!running){goalMode=false;updateGoalUI();input.value='';closeSlashMenu();clearDraft();return;}
     if(running){post('/cancel');return;}
     // double-Esc for rewind
     if(input.value===''){if(escTimer){clearTimeout(escTimer);escTimer=null;openRewindPicker();}else{escTimer=setInterval(()=>escTimer=null,600);}return;}
@@ -2456,9 +2568,9 @@ $('#btn-plan').onclick=()=>void setPlan(!planMode);
 $('#btn-full').onclick=()=>void setMode('danger-full-access');
 $('#btn-goal').onclick=()=>toggleGoalMode();
 $('#goal-chip').onclick=()=>toggleGoalMode();
-$('#btn-new').onclick=async()=>{if(running){showNotice(__('session_running'),'warn');return;}try{const r=await post('/new');if(!r.ok){if(r.status!==403){const detail=(await r.text().catch(()=>'')).trim();showNotice(__('new_failed')+' (HTTP '+r.status+(detail?': '+detail:'')+')','warn');}return;}log.innerHTML='';log.appendChild(welcome);showWelcome();hasVisibleHistory=false;checkpointCount=0;todosState=[];todosDismissed=false;renderTodoPanel();resetCumulativeStats();loadSessions();updateActionAvailability();}catch(err){showNotice(__('new_failed'),'warn');}};
-$('#btn-compact').onclick=()=>{if(actionDisabled('btn-compact')){showNotice(__('no_conversation'),'warn');return;}post('/compact');};
-$('#btn-rewind').onclick=()=>{if(actionDisabled('btn-rewind')){showNotice(__('no_checkpoints'),'warn');return;}openRewindPicker();};
+$('#btn-new').onclick=async()=>{if(running){toast(__('session_running'),'warn');return;}try{const r=await post('/new');if(!r.ok){if(r.status!==403){const detail=(await r.text().catch(()=>'')).trim();toast(__('new_failed')+' (HTTP '+r.status+(detail?': '+detail:'')+')','warn');}return;}log.innerHTML='';log.appendChild(welcome);showWelcome();hasVisibleHistory=false;checkpointCount=0;todosState=[];todosDismissed=false;renderTodoPanel();resetCumulativeStats();loadSessions();updateActionAvailability();}catch(err){toast(__('new_failed'),'warn');}};
+$('#btn-compact').onclick=()=>{if(actionDisabled('btn-compact')){toast(__('no_conversation'),'warn');return;}post('/compact');};
+$('#btn-rewind').onclick=()=>{if(actionDisabled('btn-rewind')){toast(__('no_checkpoints'),'warn');return;}openRewindPicker();};
 $('#btn-tree').onclick=()=>openBranches();
 $('#btn-models').onclick=()=>openModels();
 $('#btn-stats').onclick=()=>openStats();
@@ -2531,7 +2643,7 @@ document.addEventListener('click',e=>{
   e.stopPropagation();
   const name=del.dataset.name;
   const target=sessionsCache.find(s=>s.name===name);
-  if(target&&target.current){showNotice(__('cannot_delete_active'),'warn');return;}
+  if(target&&target.current){toast(__('cannot_delete_active'),'warn');return;}
   openDeleteSession(name);
 });
 $('#delete-modal-close').onclick=()=>closeDeleteSession();
@@ -2542,9 +2654,53 @@ $('#delete-confirm').onclick=()=>{
   if(!name)return;
   closeDeleteSession();
   post('/delete-session',{name}).then(async r=>{
-    if(!r.ok){showNotice((await r.text()).trim()||('HTTP '+r.status),'warn');}
+    if(!r.ok){toast((await r.text()).trim()||('HTTP '+r.status),'warn');}
     loadSessions();
-  }).catch(()=>showNotice(__('delete_failed'),'warn'));
+  }).catch(()=>toast(__('delete_failed'),'warn'));
+};
+
+// ── session rename ──
+// Only canonical rows carry a sessionId, so only those expose the rename
+// button; legacy transcripts have no event-log title to write to. The
+// document-level delegation keeps working for the current session even though
+// the row's own click handler early-returns for it.
+let pendingRenameSession=null;
+document.addEventListener('click',e=>{
+  const btn=e.target.closest('.session-rename');
+  if(!btn)return;
+  e.stopPropagation();
+  const target=sessionsCache.find(s=>s.name===btn.dataset.name);
+  if(target&&target.sessionId)openRenameSession(target);
+});
+function openRenameSession(s){
+  pendingRenameSession=s;
+  const input=$('#rename-input');
+  input.value=sessionTitle(s);
+  $('#rename-modal').style.display='flex';
+  setTimeout(()=>{input.focus();input.select();},0);
+}
+function closeRenameSession(){
+  $('#rename-modal').style.display='none';
+  pendingRenameSession=null;
+}
+$('#rename-modal-close').onclick=()=>closeRenameSession();
+$('#rename-cancel').onclick=()=>closeRenameSession();
+$('#rename-modal').onclick=e=>{if(e.target===e.currentTarget)closeRenameSession();};
+$('#rename-input').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){e.preventDefault();$('#rename-confirm').click();}
+  if(e.key==='Escape'){e.preventDefault();closeRenameSession();}
+});
+$('#rename-confirm').onclick=()=>{
+  const s=pendingRenameSession;
+  if(!s)return;
+  const title=$('#rename-input').value.trim();
+  if(!title)return;
+  closeRenameSession();
+  post('/rename-session',{sessionId:s.sessionId,title}).then(async r=>{
+    if(!r.ok){toast((await r.text().catch(()=>'')).trim()||__('rename_failed'),'warn');return;}
+    toast(__('rename_done'));
+    loadSessions();
+  }).catch(()=>toast(__('rename_failed'),'warn'));
 };
 
 // ── bulk prune (empty sessions / delete all) ──
@@ -2580,17 +2736,17 @@ function closePrune(){
 async function startPrune(mode){
   const btn=mode==='empty'?$('#prune-empty-btn'):$('#prune-all-btn');
   if(btn)btn.disabled=true;
-  showNotice(__('prune_running'),'warn');
+  toast(__('prune_running'),'warn');
   try{
     const r=await post('/delete-sessions',{mode,dryRun:true});
-    if(!r.ok){if(btn)btn.disabled=false;showNotice((await r.text().catch(()=>'' )).trim()||('HTTP '+r.status),'warn');return;}
+    if(!r.ok){if(btn)btn.disabled=false;toast((await r.text().catch(()=>'' )).trim()||('HTTP '+r.status),'warn');return;}
     const report=await r.json();
     if(btn)btn.disabled=false;
-    if(report.matched===0){showNotice(mode==='empty'?__('prune_confirm_empty').replace('{n}',0):__('prune_confirm_all').replace('{n}',0),'warn');return;}
+    if(report.matched===0){toast(mode==='empty'?__('prune_confirm_empty').replace('{n}',0):__('prune_confirm_all').replace('{n}',0),'warn');return;}
     openPruneConfirm(mode, report.matched);
   }catch(e){
     if(btn)btn.disabled=false;
-    showNotice(__('prune_failed'),'warn');
+    toast(__('prune_failed'),'warn');
   }
 }
 async function executePrune(){
@@ -2599,20 +2755,20 @@ async function executePrune(){
   closePrune();
   const btn=mode==='empty'?$('#prune-empty-btn'):$('#prune-all-btn');
   if(btn)btn.disabled=true;
-  showNotice(__('prune_running'),'warn');
+  toast(__('prune_running'),'warn');
   try{
     const r=await post('/delete-sessions',{mode});
-    if(!r.ok){if(btn)btn.disabled=false;showNotice((await r.text().catch(()=>'' )).trim()||('HTTP '+r.status),'warn');return;}
+    if(!r.ok){if(btn)btn.disabled=false;toast((await r.text().catch(()=>'' )).trim()||('HTTP '+r.status),'warn');return;}
     const report=await r.json();
     if(btn)btn.disabled=false;
-    showNotice(__('prune_result')
+    toast(__('prune_result')
       .replace('{d}',report.deleted??0)
       .replace('{b}',report.busy??0)
       .replace('{k}',(report.errors?.length??0)),'warn');
     loadSessions();
   }catch(e){
     if(btn)btn.disabled=false;
-    showNotice(__('prune_failed'),'warn');
+    toast(__('prune_failed'),'warn');
   }
 }
 $('#prune-empty-btn').onclick=()=>startPrune('empty');

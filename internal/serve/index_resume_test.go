@@ -11,7 +11,7 @@ func TestServeIndexResumesSessionByIdentity(t *testing.T) {
 	html := string(indexHTML)
 	for _, want := range []string{
 		"post('/resume',{path:s.path,sessionId:s.sessionId,hostId:s.hostId,name:s.name})",
-		"if(!r.ok){const detail=(await r.text().catch(()=>'')).trim();showNotice(__('resume_failed')",
+		"if(!r.ok){const detail=(await r.text().catch(()=>'')).trim();toast(__('resume_failed')",
 		"'resume_failed': 'Could not switch to that session'",
 		"'resume_failed': '无法切换到该会话'",
 	} {
