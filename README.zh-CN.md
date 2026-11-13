@@ -2,6 +2,9 @@
   <img src="docs/logo-ghost-wave-effect.svg" alt="Reasonix" width="360"/>
 </p>
 
+> [!WARNING]
+> **Reasonix 已于 2026-11-12 起停止维护。** 最后一个版本为 v2.61.0，此后不再发布新版本、修复缺陷或处理 Issue。项目采用 MIT 协议，欢迎 fork。详见[公告](https://github.com/esengine/DeepSeek-Reasonix/issues/15109)。
+
 <p align="center">
   <a href="./README.md">English</a>
   &nbsp;·&nbsp;
@@ -16,10 +19,6 @@
   <a href="./docs/SPEC.md">规格</a>
   &nbsp;·&nbsp;
   <a href="https://esengine.github.io/DeepSeek-Reasonix/">官方网站</a>
-  &nbsp;·&nbsp;
-  <strong><a href="https://discord.gg/XF78rEME2D">Discord</a></strong>
-  &nbsp;·&nbsp;
-  <strong><a href="https://qm.qq.com/q/i59b0z2R8s">QQ</a></strong>
 </p>
 
 <p align="center">
@@ -31,9 +30,6 @@
   <a href="https://github.com/esengine/DeepSeek-Reasonix/stargazers"><img src="https://img.shields.io/github/stars/esengine/DeepSeek-Reasonix.svg?style=flat-square&color=dbab09&labelColor=161b22&logo=github&logoColor=white" alt="GitHub stars"/></a>
   <a href="https://atomgit.com/esengine/DeepSeek-Reasonix"><img src="https://atomgit.com/esengine/DeepSeek-Reasonix/star/badge.svg" alt="AtomGit stars"/></a>
   <a href="https://github.com/esengine/DeepSeek-Reasonix/graphs/contributors"><img src="https://img.shields.io/github/contributors/esengine/DeepSeek-Reasonix.svg?style=flat-square&color=bc8cff&labelColor=161b22&logo=github&logoColor=white" alt="contributors"/></a>
-  <a href="https://github.com/esengine/DeepSeek-Reasonix/discussions"><img src="https://img.shields.io/github/discussions/esengine/DeepSeek-Reasonix.svg?style=flat-square&color=58a6ff&labelColor=161b22&logo=github&logoColor=white" alt="Discussions"/></a>
-  <a href="https://discord.gg/XF78rEME2D"><img src="https://img.shields.io/badge/discord-join-5865F2.svg?style=flat-square&labelColor=161b22&logo=discord&logoColor=white" alt="Discord"/></a>
-  <a href="https://qm.qq.com/q/i59b0z2R8s"><img src="https://img.shields.io/badge/QQ%20group-1093562660-12B7F5.svg?style=flat-square&labelColor=161b22&logo=tencentqq&logoColor=white" alt="QQ group 1093562660"/></a>
 </p>
 
 <p align="center">
@@ -47,17 +43,6 @@
 <h3 align="center">终端、桌面、浏览器、编辑器里都能用的 AI 编程助手。</h3>
 <p align="center">它会读你的项目、改文件、跑命令和测试。每一步先问你，或在你划定的范围内自己做，由你选；它用编辑工具改过的文件可以退回去。第一次用，从桌面应用 Studio 开始。</p>
 <p align="center">维护者：<strong>Huahui Yu</strong>。</p>
-
-> [!IMPORTANT]
-> **加入社区 · Community** — 双语 Discord，提供安装答疑（`#help` / `#求助`）、工作流展示与功能想法。→ **<https://discord.gg/XF78rEME2D>**
->
-> QQ 群 **DeepSeek-Reasonix官方群**（群号 `1093562660`）→ **<https://qm.qq.com/q/i59b0z2R8s>**（[二维码](./docs/assets/qq-group.svg)）
-
-> 抖音：**做游戏的小鱼**（抖音号 `22703872788`）· [二维码](./docs/assets/douyin.png)
-
-## ❤️赞助商
-
-<table><tr><td width="180" align="center" valign="middle"><a href="https://www.rightapi.ai/register?aff=e083bf73" target="_blank" rel="sponsored noopener noreferrer"><img src="./.github/sponsor/rightcode.png" alt="Right Code" width="64"></a></td><td valign="middle">感谢 Right Code 赞助了本项目！Right Code 稳定提供 Claude Code、Codex、Gemini 等模型的中转服务，并可选按量、包月两种计费模式。充值即可开票，企业、团队用户一对一对接。通过<a href="https://www.rightapi.ai/register?aff=e083bf73" target="_blank" rel="sponsored noopener noreferrer">此链接</a>注册。</td></tr><tr><td width="180" align="center" valign="middle"><a href="https://www.packyapi.ai/register?aff=rIbQ" target="_blank" rel="sponsored noopener noreferrer"><picture><source media="(prefers-color-scheme: dark)" srcset="./.github/sponsor/packycode-dark.svg"><img src="./.github/sponsor/packycode-light.svg" alt="PackyCode" width="80"></picture></a></td><td valign="middle">感谢 PackyCode 赞助了本项目！PackyCode 是一家稳定、高效的 API 中转服务商，统一域名、统一密钥、智能容灾切换。通过<a href="https://www.packyapi.ai/register?aff=rIbQ" target="_blank" rel="sponsored noopener noreferrer">此链接</a>注册。</td></tr></table>
 
 ## 它是什么
 
@@ -292,19 +277,4 @@ CLI 进阶用法和详细配置见 **[CLI 命令参考](./docs/CLI.zh-CN.md)**�
   <sub>MIT —— 见 <a href="./LICENSE">LICENSE</a></sub>
   <br/>
   <sub>由 <a href="https://github.com/esengine/DeepSeek-Reasonix/graphs/contributors">esengine/DeepSeek-Reasonix</a> 社区共建</sub>
-</p>
-
----
-
-<p align="center"><sub><strong>支持本项目</strong></sub></p>
-
-如果 Reasonix 帮你省了时间或 token，欢迎请杯咖啡。捐助不会换来 feature
-优先级，也不会影响 issue 的处理顺序——就是「谢谢」。
-
-- **国内** — 微信支付 / 支付宝（扫下方二维码）
-- **海外** — PayPal: [paypal.me/yuhuahui](https://paypal.me/yuhuahui)
-
-<p align="center">
-  <img src=".github/sponsor/wechat-pay.jpg" alt="微信支付收款码" width="180"/>
-  <img src=".github/sponsor/alipay.jpg" alt="支付宝收款码" width="180"/>
 </p>
