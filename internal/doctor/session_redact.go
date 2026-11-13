@@ -441,7 +441,9 @@ func redactJSONFile(path string, dryRun bool) (int64, int64, error) {
 func redactJSONValue(v any) (any, bool) {
 	switch t := v.(type) {
 	case string:
-		masked := secrets.Redact(t)
+		// Exact credential-store values first (they may not match any known
+		// secret shape), then the shape-based scrub.
+		masked := secrets.Redact(secrets.RedactKnownValues(t))
 		return masked, masked != t
 	case map[string]any:
 		changed := false
@@ -505,7 +507,7 @@ func redactPlainTextFile(path string, dryRun bool) (int64, int64, error) {
 	if err != nil {
 		return 0, 0, err
 	}
-	next := []byte(secrets.Redact(string(raw)))
+	next := []byte(secrets.Redact(secrets.RedactKnownValues(string(raw))))
 	if bytes.Equal(raw, next) {
 		return 0, 0, nil
 	}
