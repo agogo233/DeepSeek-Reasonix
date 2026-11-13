@@ -244,14 +244,23 @@ func (c *Config) IgnoredProjectDefaultModel() string {
 type SecretsConfig struct {
 	// FilterSubprocessEnv strips credential-like environment variables
 	// (*_API_KEY, *TOKEN*, *SECRET*, ...) from tool subprocesses (bash, hooks,
-	// LSP, MCP stdio). Default off: it breaks token-based workflows such as
-	// `gh`, HTTPS `git push`, and `npm publish`.
-	FilterSubprocessEnv bool `toml:"filter_subprocess_env"`
+	// LSP, MCP stdio). Default on: an unset field resolves to enabled so
+	// tokens from the user's shell profile do not leak into tool output and
+	// the persisted session log. Set it to false explicitly when a workflow
+	// needs those variables (gh, HTTPS git push, npm publish).
+	FilterSubprocessEnv *bool `toml:"filter_subprocess_env"`
 	// ProtectSensitiveFiles makes read/list/search tools treat credential
 	// paths (.env, .git-credentials, .netrc, *.pem/*.key/*.p12/*.pfx, ~/.ssh)
 	// as invisible. Default off because hiding the files breaks legitimate
 	// "edit my .env" workflows.
 	ProtectSensitiveFiles bool `toml:"protect_sensitive_files"`
+}
+
+// FilterSubprocessEnvEnabled resolves the optional filter_subprocess_env
+// toggle. An unset field means enabled — the safe default for a tool that can
+// execute printenv-style commands and persist their output.
+func (s SecretsConfig) FilterSubprocessEnvEnabled() bool {
+	return s.FilterSubprocessEnv == nil || *s.FilterSubprocessEnv
 }
 
 type providerSourceScope string

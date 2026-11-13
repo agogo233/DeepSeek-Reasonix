@@ -87,7 +87,10 @@ func TestRuntimeConfigFingerprintRetainsRuntimeDependencies(t *testing.T) {
 		{"sandbox roots", func(c *config.Config) { c.Sandbox.AllowWrite = []string{"/fixture/write"} }},
 		{"sandbox reads", func(c *config.Config) { c.Sandbox.ForbidRead = []string{"/fixture/secret"} }},
 		{"sandbox network", func(c *config.Config) { c.Sandbox.Network = !c.Sandbox.Network }},
-		{"subprocess filtering", func(c *config.Config) { c.Secrets.FilterSubprocessEnv = !c.Secrets.FilterSubprocessEnv }},
+		{"subprocess filtering", func(c *config.Config) {
+			enabled := !c.Secrets.FilterSubprocessEnvEnabled()
+			c.Secrets.FilterSubprocessEnv = &enabled
+		}},
 		{"sensitive files", func(c *config.Config) { c.Secrets.ProtectSensitiveFiles = !c.Secrets.ProtectSensitiveFiles }},
 		{"bot credential protection", func(c *config.Config) { c.Bot.QQ.AppSecretEnv = "BOT_FIXTURE_SECRET" }},
 		{"proxy", func(c *config.Config) { c.Network.ProxyMode = "off" }},

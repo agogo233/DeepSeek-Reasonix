@@ -286,7 +286,7 @@ func build(ctx context.Context, opts Options) (*BuildResult, error) {
 	// section before any tool, hook, or plugin subprocess can spawn. Package
 	// globals are correct here because [secrets] is user-global (project
 	// reasonix.toml cannot override it), so concurrent workspaces agree.
-	secrets.SetFilterSubprocessEnv(cfg.Secrets.FilterSubprocessEnv)
+	secrets.SetFilterSubprocessEnv(cfg.Secrets.FilterSubprocessEnvEnabled())
 	secrets.SetProtectSensitiveFiles(cfg.Secrets.ProtectSensitiveFiles)
 	secrets.RegisterCredentialEnvKeys(cfg.CredentialEnvNames())
 

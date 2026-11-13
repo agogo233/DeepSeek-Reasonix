@@ -1458,7 +1458,7 @@ func TestProjectConfigCannotOverrideSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadForRoot() error = %v", err)
 	}
-	if cfg.Secrets.FilterSubprocessEnv {
+	if cfg.Secrets.FilterSubprocessEnvEnabled() {
 		t.Error("project reasonix.toml enabled filter_subprocess_env; [secrets] must stay user-global")
 	}
 	if cfg.Secrets.ProtectSensitiveFiles {
@@ -1471,7 +1471,8 @@ func TestProjectConfigCannotOverrideSecrets(t *testing.T) {
 // silently drop the user's security toggles.
 func TestRenderTOMLPersistsSecretsSection(t *testing.T) {
 	cfg := Default()
-	cfg.Secrets.FilterSubprocessEnv = true
+	enabled := true
+	cfg.Secrets.FilterSubprocessEnv = &enabled
 	cfg.Secrets.ProtectSensitiveFiles = true
 
 	out := RenderTOMLForScope(cfg, RenderScopeUser)
@@ -1489,7 +1490,7 @@ func TestRenderTOMLPersistsSecretsSection(t *testing.T) {
 	if err := mergeFile(back, path); err != nil {
 		t.Fatalf("round-trip decode: %v", err)
 	}
-	if !back.Secrets.FilterSubprocessEnv || !back.Secrets.ProtectSensitiveFiles {
+	if !back.Secrets.FilterSubprocessEnvEnabled() || !back.Secrets.ProtectSensitiveFiles {
 		t.Fatalf("secrets toggles lost in render round-trip: %+v", back.Secrets)
 	}
 
@@ -1499,5 +1500,22 @@ func TestRenderTOMLPersistsSecretsSection(t *testing.T) {
 	}
 	if strings.Contains(out, "redact_tool_output") {
 		t.Fatalf("user-scope render still exposes removed live-redaction setting:\n%s", out)
+	}
+}
+
+// TestSecretsFilterSubprocessEnvDefaults pins the safe default: an unset
+// filter_subprocess_env resolves to enabled so shell-profile tokens stay out
+// of tool output, while an explicit false keeps the legacy opt-out working.
+func TestSecretsFilterSubprocessEnvDefaults(t *testing.T) {
+	if !(SecretsConfig{}).FilterSubprocessEnvEnabled() {
+		t.Error("unset filter_subprocess_env must default to enabled")
+	}
+	disabled := false
+	if (SecretsConfig{FilterSubprocessEnv: &disabled}).FilterSubprocessEnvEnabled() {
+		t.Error("explicit filter_subprocess_env = false must stay disabled")
+	}
+	enabled := true
+	if !(SecretsConfig{FilterSubprocessEnv: &enabled}).FilterSubprocessEnvEnabled() {
+		t.Error("explicit filter_subprocess_env = true must stay enabled")
 	}
 }

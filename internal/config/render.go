@@ -699,10 +699,10 @@ func RenderTOMLForScope(c *Config, scope RenderScope) string {
 	// whole file from the struct).
 	if scope != RenderScopeProject {
 		b.WriteString("[secrets]   # credential protection; user/global only, ./reasonix.toml cannot override\n")
-		if c.Secrets.FilterSubprocessEnv {
+		if c.Secrets.FilterSubprocessEnvEnabled() {
 			b.WriteString("filter_subprocess_env = true   # strip credential-named env vars from tool/hook/LSP/MCP subprocesses\n")
 		} else {
-			b.WriteString("# filter_subprocess_env = false   # opt-in; stripping tokens breaks gh, HTTPS git push, npm publish\n")
+			b.WriteString("filter_subprocess_env = false   # keep credential-named env vars in subprocesses; gh, HTTPS git push, npm publish rely on them\n")
 		}
 		if c.Secrets.ProtectSensitiveFiles {
 			b.WriteString("protect_sensitive_files = true   # hide .env/.git-credentials/key files/~/.ssh from read tools\n")
