@@ -30,6 +30,7 @@ import (
 	"reasonix/internal/event"
 	"reasonix/internal/evidence"
 	"reasonix/internal/nilutil"
+	"reasonix/internal/secrets"
 	"reasonix/internal/tool"
 )
 
@@ -332,9 +333,14 @@ func (w jobWriter) Write(p []byte) (int, error) {
 	w.j.mu.Lock()
 	defer w.j.mu.Unlock()
 	w.j.clock.activityAt = nowMs()
-	w.j.tail = appendTail(w.j.tail, p, defaultTailBytes)
+	// Job logs are persisted (tail buffer + artifact file), so exact-match
+	// mask credential-store values before either copy is written. Chunk
+	// boundaries can still split a secret; doctor redact-sessions sweeps the
+	// finished log as the second pass.
+	masked := []byte(secrets.RedactKnownValues(string(p)))
+	w.j.tail = appendTail(w.j.tail, masked, defaultTailBytes)
 	if w.j.artifactFile != nil {
-		if _, err := w.j.artifactFile.Write(p); err != nil {
+		if _, err := w.j.artifactFile.Write(masked); err != nil {
 			w.j.artifactErr = err.Error()
 		}
 	}

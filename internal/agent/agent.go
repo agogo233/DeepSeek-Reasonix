@@ -30,6 +30,7 @@ import (
 	"reasonix/internal/provider"
 	"reasonix/internal/runtimepolicy"
 	"reasonix/internal/sandbox"
+	"reasonix/internal/secrets"
 	"reasonix/internal/sessiontemp"
 	"reasonix/internal/tool"
 	"reasonix/internal/workspacelease"
@@ -1619,10 +1620,12 @@ func toEventShellExecution(in *tool.ShellExecution, durationMs int64) *event.She
 		SupportsAndAnd: in.SupportsAndAnd,
 		State:          in.State,
 		FailurePhase:   in.FailurePhase,
-		OutputTail:     in.OutputTail,
-		MutationRisk:   in.MutationRisk,
-		Verification:   in.Verification,
-		DurationMs:     in.DurationMs,
+		// The tail persists with the message and the tool/result event, so a
+		// failed command whose output carried a credential must not keep it.
+		OutputTail:   secrets.RedactKnownValues(in.OutputTail),
+		MutationRisk: in.MutationRisk,
+		Verification: in.Verification,
+		DurationMs:   in.DurationMs,
 	}
 	if out.DurationMs == 0 && durationMs > 0 {
 		out.DurationMs = durationMs
@@ -1646,10 +1649,12 @@ func toProviderToolExecution(in *tool.ShellExecution) *provider.ToolExecution {
 		SupportsAndAnd: in.SupportsAndAnd,
 		State:          in.State,
 		FailurePhase:   in.FailurePhase,
-		OutputTail:     in.OutputTail,
-		MutationRisk:   in.MutationRisk,
-		Verification:   in.Verification,
-		DurationMs:     in.DurationMs,
+		// Same masking as toEventShellExecution: the tail is persisted with
+		// the tool message.
+		OutputTail:   secrets.RedactKnownValues(in.OutputTail),
+		MutationRisk: in.MutationRisk,
+		Verification: in.Verification,
+		DurationMs:   in.DurationMs,
 	}
 	if in.ExitCode != nil {
 		code := *in.ExitCode

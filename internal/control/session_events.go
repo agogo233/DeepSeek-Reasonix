@@ -16,6 +16,7 @@ import (
 	"reasonix/internal/agent"
 	"reasonix/internal/event"
 	"reasonix/internal/provider"
+	"reasonix/internal/secrets"
 	"reasonix/internal/session"
 	"reasonix/internal/turnevent"
 )
@@ -594,7 +595,9 @@ func v3ToolPayload(tool event.Tool, result bool) map[string]any {
 		"workspaceAllPaths": tool.WorkspaceAllPaths,
 	}
 	if result {
-		payload["output"] = tool.Output
+		// The event log persists this payload verbatim, so exact-match mask
+		// credential-store values before they reach disk.
+		payload["output"] = secrets.RedactKnownValues(tool.Output)
 		payload["error"] = tool.Err
 		payload["todos"] = tool.Todos
 		payload["todoWritten"] = tool.TodoWritten

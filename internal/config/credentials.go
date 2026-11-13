@@ -13,6 +13,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"reasonix/internal/fileutil"
+	"reasonix/internal/secrets"
 )
 
 const (
@@ -489,8 +490,19 @@ func parseCredentialLines(lines []string) map[string]string {
 func pinCredentialAssignments(assignments map[string]string) {
 	for key, value := range assignments {
 		_ = os.Setenv(key, value)
+		registerCredentialProtection(key, value)
 		recordCredentialSource(key, value, CredentialSource{Kind: CredentialSourceCredentials, Path: UserCredentialsPath(), Label: "Reasonix credentials (.env)"})
 	}
+}
+
+// registerCredentialProtection arms the subprocess-environment filter and the
+// exact-value redaction layer at the moment a credential-store value enters
+// the process. Registering here (instead of only at boot) closes the window
+// where a key saved while a session is running would still reach tool
+// subprocesses and, via printenv-style output, the persisted session log.
+func registerCredentialProtection(key, value string) {
+	secrets.RegisterCredentialEnvKeys([]string{key})
+	secrets.RegisterCredentialValues([]string{value})
 }
 
 func recordExistingCredentialSource(key string) {

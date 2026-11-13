@@ -9,6 +9,7 @@ import (
 	"reasonix/internal/event"
 	"reasonix/internal/evidence"
 	"reasonix/internal/provider"
+	"reasonix/internal/secrets"
 	"reasonix/internal/tool"
 )
 
@@ -26,7 +27,7 @@ func (a *Agent) emitBatchToolResult(ctx context.Context, c provider.ToolCall, o 
 		Args:           c.Arguments,
 		ResolvedName:   c.ResolvedName,
 		CapabilityID:   c.CapabilityID,
-		Output:         o.output,
+		Output:         secrets.RedactKnownValues(o.output),
 		Err:            o.errMsg,
 		ReadOnly:       readOnly,
 		Truncated:      o.truncated,
@@ -115,7 +116,11 @@ func (a *Agent) recordToolExecutionAudit(readOnly, parallel bool, startedAt, dur
 
 func (a *Agent) buildBatchToolResult(ctx context.Context, call provider.ToolCall, o toolOutcome) provider.Message {
 	state := outcomeRunState(o)
-	msg := provider.Message{Role: provider.RoleTool, Content: o.output, Images: o.images, VisionSummary: o.visionSummary, ToolCallID: call.ID, Name: call.Name, ToolRunState: state, ToolExecution: toProviderToolExecution(o.execution), PresentedFiles: provider.NewPresentedFilesMetadata(o.presentedFiles)}
+	// Mask exact credential-store values before the tool output reaches the
+	// conversation: the message is persisted to the session log (content and
+	// full raw content alike), so this is the last point where a secret that
+	// leaked into tool output can still be kept off disk.
+	msg := provider.Message{Role: provider.RoleTool, Content: secrets.RedactKnownValues(o.output), Images: o.images, VisionSummary: o.visionSummary, ToolCallID: call.ID, Name: call.Name, ToolRunState: state, ToolExecution: toProviderToolExecution(o.execution), PresentedFiles: provider.NewPresentedFilesMetadata(o.presentedFiles)}
 	if len(o.images) > 0 && a.imageResolver != nil {
 		if inputs, err := a.imageResolver.PersistToolImages(ctx, o.images); err == nil && len(inputs) > 0 {
 			msg.ImageInputs = inputs
@@ -129,8 +134,10 @@ func (a *Agent) buildBatchToolResult(ctx context.Context, call provider.ToolCall
 	if o.diagnostic != nil && len(msg.ToolDiagnostic) == 0 {
 		msg.ToolDiagnostic, _ = json.Marshal(o.diagnostic)
 	}
-	if o.rawOutput != "" && o.rawOutput != o.output {
-		msg.RawContent = o.rawOutput
+	if o.rawOutput != "" {
+		if rawContent := secrets.RedactKnownValues(o.rawOutput); rawContent != msg.Content {
+			msg.RawContent = rawContent
+		}
 	}
 	if env, ok := a.finalizedReadEnvelope(ctx, call, o); ok {
 		if env.HasMore && len(msg.ToolDiagnostic) == 0 {

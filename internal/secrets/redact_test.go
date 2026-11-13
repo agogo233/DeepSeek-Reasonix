@@ -336,3 +336,47 @@ func TestRedactMessagesDoesNotMutateInput(t *testing.T) {
 		t.Fatalf("RedactMessages mutated the caller's Content: %q", msgs[1].Content)
 	}
 }
+
+func TestRedactKnownValuesMasksRegisteredSecretsOnly(t *testing.T) {
+	credentialValues.Lock()
+	previous := make(map[string]struct{}, len(credentialValues.values))
+	for value := range credentialValues.values {
+		previous[value] = struct{}{}
+	}
+	credentialValues.values = map[string]struct{}{}
+	credentialValues.Unlock()
+	t.Cleanup(func() {
+		credentialValues.Lock()
+		credentialValues.values = previous
+		credentialValues.Unlock()
+	})
+
+	const secret = "sk-abcdef1234567890abcdef"
+	RegisterCredentialValues([]string{secret, "short", ""})
+	// Whitespace is trimmed before the value is registered.
+	RegisterCredentialValues([]string{"  " + secret + "  "})
+
+	in := "DEEPSEEK_API_KEY=" + secret + " and " + secret + " in prose"
+	out := RedactKnownValues(in)
+	if strings.Contains(out, secret) {
+		t.Fatalf("registered value survived: %q", out)
+	}
+	if want := "DEEPSEEK_API_KEY=" + redactedValue + " and " + redactedValue + " in prose"; out != want {
+		t.Fatalf("unexpected masking:\n got %q\nwant %q", out, want)
+	}
+
+	if got := RedactKnownValues("no secrets here, just text"); got != "no secrets here, just text" {
+		t.Fatalf("unrelated text changed: %q", got)
+	}
+	if got := RedactKnownValues(""); got != "" {
+		t.Fatalf("empty input changed: %q", got)
+	}
+
+	// Longest-first masking: a registered value that contains another one is
+	// masked as a whole instead of leaving its tail behind.
+	const nested = secret + "-suffix"
+	RegisterCredentialValues([]string{nested})
+	if got := RedactKnownValues("token " + nested + " end"); got != "token "+redactedValue+" end" {
+		t.Fatalf("nested value not masked as a whole: %q", got)
+	}
+}

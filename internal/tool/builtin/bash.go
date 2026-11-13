@@ -364,7 +364,9 @@ func (b bash) runForegroundDetailed(ctx context.Context, p bashParams, sh sandbo
 	ex := shellrun.DescriptorFromShell(sh)
 	var progress func(string)
 	if emit, ok := tool.ProgressFrom(ctx); ok {
-		progress = emit
+		// Progress chunks are persisted by both the legacy turn ledger and
+		// the v3 event log, so mask registered credential values per chunk.
+		progress = func(chunk string) { emit(secrets.RedactKnownValues(chunk)) }
 	}
 	track := shouldTrackShellProcess(wrapped, sh, p.Command, p.PreserveBackgroundProcesses)
 	res := shellrun.RunForeground(ctx, shellrun.Request{

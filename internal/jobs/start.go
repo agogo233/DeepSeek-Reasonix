@@ -6,6 +6,7 @@ import (
 	"io"
 	"reasonix/internal/event"
 	"reasonix/internal/nilutil"
+	"reasonix/internal/secrets"
 	"strings"
 )
 
@@ -128,6 +129,10 @@ func (m *Manager) runJob(ctx context.Context, j *Job, run func(context.Context, 
 	}
 	finishedAt := nowMs()
 	if result != "" {
+		// The artifact .log and the in-memory tail persist verbatim; the
+		// streaming jobWriter path masks per chunk, so the final result must
+		// be masked here too.
+		result = secrets.RedactKnownValues(result)
 		j.mu.Lock()
 		if j.artifactFile != nil {
 			if _, writeErr := j.artifactFile.WriteString(result); writeErr != nil {

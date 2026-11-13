@@ -57,6 +57,7 @@ import (
 	"reasonix/internal/plugin"
 	"reasonix/internal/provider"
 	"reasonix/internal/sandbox"
+	"reasonix/internal/secrets"
 	"reasonix/internal/session"
 	"reasonix/internal/sessioncontext"
 	"reasonix/internal/sessioninbox"
@@ -1864,7 +1865,7 @@ func (c *Controller) runShell(command string, admission turnAdmission) {
 			Progress: func(chunk string) {
 				c.sink.Emit(event.Event{
 					Kind: event.ToolProgress,
-					Tool: event.Tool{ID: id, Output: chunk},
+					Tool: event.Tool{ID: id, Output: secrets.RedactKnownValues(chunk)},
 				})
 			},
 		})
@@ -1873,7 +1874,7 @@ func (c *Controller) runShell(command string, admission turnAdmission) {
 			Kind: desc.Kind, Shell: desc.Shell, ShellVersion: desc.ShellVersion,
 			Platform: desc.Platform, SupportsAndAnd: desc.SupportsAndAnd,
 			State: res.State, FailurePhase: res.FailurePhase,
-			OutputTail: res.OutputTail, DurationMs: durationMs,
+			OutputTail: secrets.RedactKnownValues(res.OutputTail), DurationMs: durationMs,
 			MutationRisk: tool.ShellMutationNone,
 			Verification: tool.ShellVerificationNotVerification,
 		}
@@ -1910,7 +1911,7 @@ func (c *Controller) runShell(command string, admission turnAdmission) {
 		c.sink.Emit(event.Event{
 			Kind: event.ToolResult,
 			Tool: event.Tool{
-				ID: id, Name: "bash", Output: res.Combined, Err: errText,
+				ID: id, Name: "bash", Output: secrets.RedactKnownValues(res.Combined), Err: secrets.RedactKnownValues(errText),
 				DurationMs: durationMs, Execution: ex,
 			},
 		})

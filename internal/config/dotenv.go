@@ -119,6 +119,9 @@ func loadDotEnvFileAs(path string, source CredentialSource) {
 		if err := os.Setenv(key, val); err == nil && source.Kind != "" {
 			source.Path = path
 			recordCredentialSource(key, val, source)
+			if source.Kind == CredentialSourceCredentials {
+				registerCredentialProtection(key, val)
+			}
 		}
 	}
 }

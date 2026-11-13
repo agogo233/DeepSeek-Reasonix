@@ -3,6 +3,7 @@ package secrets
 import (
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -57,7 +58,20 @@ var (
 		sync.RWMutex
 		keys map[string]struct{}
 	}{keys: map[string]struct{}{}}
+	// credentialValues holds the actual secret values loaded from Reasonix's
+	// credential store so persisted artifacts can be scrubbed by exact match.
+	// Exact value matching (unlike shape-based redaction) cannot mask
+	// look-alike strings, so tool output stays byte-preserving unless it
+	// really contains a stored secret.
+	credentialValues = struct {
+		sync.RWMutex
+		values map[string]struct{}
+	}{values: map[string]struct{}{}}
 )
+
+// minRedactableValueLen keeps trivially short strings (empty values, "true",
+// model names) out of the exact-match scrubber; real secrets are longer.
+const minRedactableValueLen = 8
 
 // SetFilterSubprocessEnv enables or disables stripping credential-like
 // variables from tool subprocess environments ([secrets]
@@ -95,6 +109,51 @@ func RegisterCredentialEnvKeys(keys []string) {
 
 func credentialEnvKey(key string) string {
 	return strings.ToUpper(strings.TrimSpace(key))
+}
+
+// RegisterCredentialValues records the actual secret values loaded from
+// Reasonix's credential store. Registration is a process-lifetime union, the
+// same contract as RegisterCredentialEnvKeys: values stay registered after a
+// key is removed so artifacts persisted while the key existed can still be
+// scrubbed.
+func RegisterCredentialValues(values []string) {
+	credentialValues.Lock()
+	defer credentialValues.Unlock()
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if len(value) < minRedactableValueLen {
+			continue
+		}
+		credentialValues.values[value] = struct{}{}
+	}
+}
+
+// RedactKnownValues masks exact occurrences of credential-store values in s.
+// It complements the shape-based Redact: printenv output, cat of a credentials
+// file, or any echoed secret is masked before it reaches a persisted session
+// log, while output without a real secret stays byte-for-byte unchanged.
+func RedactKnownValues(s string) string {
+	if s == "" {
+		return s
+	}
+	credentialValues.RLock()
+	values := make([]string, 0, len(credentialValues.values))
+	for value := range credentialValues.values {
+		values = append(values, value)
+	}
+	credentialValues.RUnlock()
+	if len(values) == 0 {
+		return s
+	}
+	// Longest first so a value that contains another registered value is
+	// masked as a whole instead of leaving its tail behind.
+	sort.Slice(values, func(i, j int) bool { return len(values[i]) > len(values[j]) })
+	for _, value := range values {
+		if strings.Contains(s, value) {
+			s = strings.ReplaceAll(s, value, redactedValue)
+		}
+	}
+	return s
 }
 
 func registeredCredentialEnvKey(key string) bool {
