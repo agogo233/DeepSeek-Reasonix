@@ -220,6 +220,16 @@ func TestServeIndexWebUXEnhancements(t *testing.T) {
 		"'rename_done': '会话已重命名'",
 		"'save': 'Save'",
 		"'save': '保存'",
+		// mobile / touch: keyboard-aware viewport, dynamic viewport height,
+		// footer-anchored toasts that clear #jump-latest, and actions that stay
+		// visible on devices without hover.
+		"interactive-widget=resizes-content",
+		"height:100vh;height:100dvh",
+		".toasts{position:absolute;left:12px;right:12px;bottom:calc(100% + 56px)",
+		"@media(hover:none){",
+		".msg-copy{opacity:1}",
+		".session-del,.session-rename{display:inline-flex}",
+		".composer__input{font-size:16px}",
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("serve index missing web-ux marker %q", want)
