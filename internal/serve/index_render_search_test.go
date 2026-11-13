@@ -139,3 +139,28 @@ func TestServeIndexChatLayout(t *testing.T) {
 		}
 	}
 }
+
+// The "back to latest" control lets a reader who scrolled up return to the
+// newest message. It must stay anchored to the footer (the transcript is wiped
+// on session switch), stay hidden until the reader is genuinely far from the
+// bottom, and carry a localized accessible name.
+func TestServeIndexJumpLatest(t *testing.T) {
+	html := string(indexHTML)
+	for _, want := range []string{
+		`id="jump-latest"`,
+		`title="__('jump_latest')"`,
+		".jump-latest{position:absolute;bottom:calc(100% + 14px);right:22px;width:34px;height:34px;border-radius:50%",
+		".jump-latest--show{opacity:1;visibility:visible",
+		"'jump_latest': 'Back to latest'",
+		"'jump_latest': '回到最新'",
+		"const jumpLatest = $('#jump-latest');",
+		"function updateJumpLatest()",
+		"function scrollDown(force) { updateJumpLatest();",
+		"log.scrollTo({top:log.scrollHeight,behavior:'instant'});updateJumpLatest();",
+		"showWelcome() { if(welcome) welcome.style.display='';updateJumpLatest();}",
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("serve index missing jump-latest marker %q", want)
+		}
+	}
+}

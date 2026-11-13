@@ -46,6 +46,10 @@ input,textarea{font:inherit;color:inherit}
 .transcript{overflow-y:auto;padding:24px 28px}
 .footer{border-top:1px solid var(--border);background:var(--bg);padding:12px 28px 16px;display:flex;flex-direction:column;gap:8px;position:relative}
 .footer::before{content:'';position:absolute;inset:-20px 0 auto 0;height:20px;background:linear-gradient(to top,var(--bg),transparent);pointer-events:none}
+.jump-latest{position:absolute;bottom:calc(100% + 14px);right:22px;width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--panel);border:1px solid var(--border-strong);color:var(--fg-2);box-shadow:var(--shadow-md);z-index:20;opacity:0;visibility:hidden;pointer-events:none;transform:translateY(8px);transition:opacity .18s ease,transform .18s ease,visibility .18s ease,background .15s ease,color .15s ease}
+.jump-latest svg{width:16px;height:16px}
+.jump-latest:hover{background:var(--card-hover);color:var(--fg)}
+.jump-latest--show{opacity:1;visibility:visible;pointer-events:auto;transform:translateY(0)}
 
 .sidebar__brand{display:flex;align-items:center;gap:9px;padding:16px 14px 12px;border-bottom:1px solid var(--border)}
 .sidebar__logo{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--accent),var(--violet));display:flex;align-items:center;justify-content:center;font-family:var(--heading);font-weight:700;font-size:13px;color:oklch(99% 0 0)}
@@ -597,6 +601,9 @@ mark.srch--cur{background:var(--accent);color:oklch(99% 0 0)}
         <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
       </button>
     </div>
+    <button type="button" class="jump-latest" id="jump-latest" title="__('jump_latest')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+    </button>
   </footer>
 </div>
 
@@ -872,6 +879,7 @@ const __T = {
     'scope_sumupto': 'Compress model context before here (visible history is kept)',
     'delete_confirm': 'Delete this session?',
     'welcome_tag': 'AI coding agent',
+    'jump_latest': 'Back to latest',
     'hint_commands': '/ commands',
     'hint_mode': 'Plan',
     'hint_rewind': 'Esc×2 rewind',
@@ -1047,6 +1055,7 @@ const __T = {
     'scope_sumupto': '压缩此处之前的模型上下文（保留可见历史）',
     'delete_confirm': '删除此会话？',
     'welcome_tag': 'AI 编码助手',
+    'jump_latest': '回到最新',
     'hint_commands': '/ 命令',
     'hint_mode': '计划',
     'hint_rewind': 'Esc×2 回退',
@@ -1109,6 +1118,7 @@ const turnInfo = $('#turn-info'), balanceInfo = $('#balance-info');
 const ctxFill = $('#ctx-fill'), ctxUsed = $('#ctx-used'), ctxWindow = $('#ctx-window');
 const statusDotSidebar = $('#status-dot'), statusModel = $('#status-model');
 const welcome = $('#welcome');
+const jumpLatest = $('#jump-latest');
 const welcomeModel = $('#welcome-model'), welcomeCwd = $('#welcome-cwd');
 const slashAnchor = $('#slash-menu-anchor');
 
@@ -1199,12 +1209,15 @@ function post(path, body) {
 // chunks, and its intermediate positions would read as "not at bottom" and
 // break pin detection.
 let pinnedToBottom=true;
+const JUMP_GAP = 200;
 function atBottom() { return log.scrollHeight-log.scrollTop-log.clientHeight<40; }
-log.addEventListener('scroll',()=>{pinnedToBottom=atBottom();});
+function updateJumpLatest() { if(!jumpLatest)return; jumpLatest.classList.toggle('jump-latest--show', log.scrollHeight-log.scrollTop-log.clientHeight>JUMP_GAP); }
+log.addEventListener('scroll',()=>{pinnedToBottom=atBottom();updateJumpLatest();});
 log.addEventListener('wheel',e=>{if(e.deltaY<0&&log.scrollHeight>log.clientHeight)pinnedToBottom=false;},{passive:true});
-function scrollDown(force) { if(force)pinnedToBottom=true; if(!pinnedToBottom)return; requestAnimationFrame(()=>{if(force)pinnedToBottom=true; else if(!pinnedToBottom)return; log.scrollTo({top:log.scrollHeight,behavior:'instant'});});}
+function scrollDown(force) { updateJumpLatest(); if(force)pinnedToBottom=true; if(!pinnedToBottom)return; requestAnimationFrame(()=>{if(force)pinnedToBottom=true; else if(!pinnedToBottom)return; log.scrollTo({top:log.scrollHeight,behavior:'instant'});updateJumpLatest();});}
+if(jumpLatest){jumpLatest.setAttribute('aria-label',__('jump_latest'));jumpLatest.onclick=()=>{pinnedToBottom=true;scrollDown(true);};}
 function hideWelcome() { if(welcome) welcome.style.display='none';}
-function showWelcome() { if(welcome) welcome.style.display='';}
+function showWelcome() { if(welcome) welcome.style.display='';updateJumpLatest();}
 // Global single-key shortcuts must stay dead while the user is typing (the
 // composer is autofocused, so this is the default state) and when a
 // browser/OS chord is held (Cmd+A must never resolve an approval).
