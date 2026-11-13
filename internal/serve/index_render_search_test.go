@@ -108,3 +108,34 @@ func TestServeIndexSearchShortcuts(t *testing.T) {
 		}
 	}
 }
+
+// The web client presents a chat-style layout: user messages render as a
+// right-aligned tinted bubble, assistant messages as a labelled card, and the
+// tool/error surfaces share the same reading column. These content assertions
+// lock the layout markers so a future edit cannot silently drop the role
+// distinction or the column alignment.
+func TestServeIndexChatLayout(t *testing.T) {
+	html := string(indexHTML)
+	for _, want := range []string{
+		// User bubble: right-aligned, tinted, caret hidden.
+		".msg--user{display:flex;justify-content:flex-end}",
+		".msg__caret{display:none}",
+		".msg--user .msg__text{max-width:85%;background:var(--bubble-user)",
+		"--bubble-user:oklch(68% .16 38/.13)",
+		// Assistant card + role label.
+		".msg--assistant{color:var(--fg);line-height:1.7;background:var(--panel)",
+		".msg__head{display:flex",
+		".msg__dot{width:7px;height:7px;border-radius:50%",
+		"h.appendChild(document.createTextNode('Reasonix'))",
+		// Surfaces that must share the 760px reading column.
+		".card{max-width:760px;",
+		".msg--error{max-width:760px;",
+		// Code blocks use the dedicated deeper background.
+		".msg__md pre{background:var(--code-bg)",
+		"--code-bg:oklch(13.5% .006 275)",
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("serve index missing chat layout marker %q", want)
+		}
+	}
+}
