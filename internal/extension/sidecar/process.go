@@ -165,6 +165,12 @@ func resolveRuntimeCommand(rt *pluginpkg.RuntimeSpec, root string) (string, erro
 // manifest's env, and the well-known plugin identity variables. Later entries
 // win over earlier ones for duplicate keys (exec.Cmd.Env semantics), so the
 // manifest can tune but the identity variables cannot be forged by it.
+//
+// Security note: because the environment is unfiltered, credential-store
+// values (provider API keys pinned into this process) are visible to any
+// installed extension's sidecar. This is part of the full-trust contract —
+// only install extensions you trust; filtering here would not close the gap,
+// since a trusted-enough sidecar can read the credential file directly.
 func runtimeEnv(rt *pluginpkg.RuntimeSpec, pkg pluginpkg.Package, installed pluginpkg.InstalledPlugin) []string {
 	env := append([]string(nil), os.Environ()...)
 	for key, value := range rt.Env {
