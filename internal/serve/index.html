@@ -707,6 +707,8 @@ document.documentElement.lang = __LANG;
 const __T = {
   en: {
     'new_session': 'New Session',
+    'session_running': 'A turn is running. Stop it before starting a new session.',
+    'new_failed': 'Could not start a new session',
     'compact': 'Compact',
     'rewind': 'Rewind',
     'branches': 'Branches',
@@ -880,6 +882,8 @@ const __T = {
   },
   zh: {
     'new_session': '新会话',
+    'session_running': '当前回合仍在运行，请先停止再新建会话。',
+    'new_failed': '新建会话失败',
     'compact': '压缩',
     'rewind': '回退',
     'branches': '分支',
@@ -1271,6 +1275,7 @@ function showProtocolRecovery(action){
   card.appendChild(button);log.appendChild(card);scrollDown(true);
 }
 function updateActionAvailability() {
+  setActionDisabled('btn-new', running, running ? __('thinking') : '');
   setActionDisabled('btn-compact', running || !hasVisibleHistory, running ? __('thinking') : __('no_conversation'));
   setActionDisabled('btn-rewind', running || checkpointCount === 0, running ? __('thinking') : __('no_checkpoints'));
 }
@@ -2427,7 +2432,7 @@ $('#btn-plan').onclick=()=>void setPlan(!planMode);
 $('#btn-full').onclick=()=>void setMode('danger-full-access');
 $('#btn-goal').onclick=()=>toggleGoalMode();
 $('#goal-chip').onclick=()=>toggleGoalMode();
-$('#btn-new').onclick=()=>{if(running)return;post('/new').then(()=>{log.innerHTML='';log.appendChild(welcome);showWelcome();hasVisibleHistory=false;checkpointCount=0;todosState=[];todosDismissed=false;renderTodoPanel();resetCumulativeStats();loadSessions();updateActionAvailability();});};
+$('#btn-new').onclick=async()=>{if(running){showNotice(__('session_running'),'warn');return;}try{const r=await post('/new');if(!r.ok){if(r.status!==403){const detail=(await r.text().catch(()=>'')).trim();showNotice(__('new_failed')+' (HTTP '+r.status+(detail?': '+detail:'')+')','warn');}return;}log.innerHTML='';log.appendChild(welcome);showWelcome();hasVisibleHistory=false;checkpointCount=0;todosState=[];todosDismissed=false;renderTodoPanel();resetCumulativeStats();loadSessions();updateActionAvailability();}catch(err){showNotice(__('new_failed'),'warn');}};
 $('#btn-compact').onclick=()=>{if(actionDisabled('btn-compact')){showNotice(__('no_conversation'),'warn');return;}post('/compact');};
 $('#btn-rewind').onclick=()=>{if(actionDisabled('btn-rewind')){showNotice(__('no_checkpoints'),'warn');return;}openRewindPicker();};
 $('#btn-tree').onclick=()=>openBranches();
