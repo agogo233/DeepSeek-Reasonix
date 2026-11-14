@@ -230,6 +230,18 @@ func TestServeIndexWebUXEnhancements(t *testing.T) {
 		".msg-copy{opacity:1}",
 		".session-del,.session-rename{display:inline-flex}",
 		".composer__input{font-size:16px}",
+		// session completion time: relative-age helper wired into the sidebar,
+		// localized for both languages.
+		"function sessionTimeAgo(",
+		"sessionTimeAgo(s.mtimeMilli)",
+		"'session_just_now': 'just now'",
+		"'session_just_now': '刚刚'",
+		"'session_min_ago': '#{turn}m ago'",
+		"'session_min_ago': '#{turn} 分钟前'",
+		"'session_hour_ago': '#{turn}h ago'",
+		"'session_hour_ago': '#{turn} 小时前'",
+		"'session_day_ago': '#{turn}d ago'",
+		"'session_day_ago': '#{turn} 天前'",
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("serve index missing web-ux marker %q", want)

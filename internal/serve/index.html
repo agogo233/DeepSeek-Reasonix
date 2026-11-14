@@ -926,6 +926,10 @@ const __T = {
     'active': 'Active',
     'use_model': 'Use',
     'no_sessions': 'No sessions',
+    'session_just_now': 'just now',
+    'session_min_ago': '#{turn}m ago',
+    'session_hour_ago': '#{turn}h ago',
+    'session_day_ago': '#{turn}d ago',
     'prune_empty': 'Prune Empty',
     'prune_all': 'Delete All',
     'prune_confirm_empty': 'This will prune {n} empty session(s). Sessions in use are skipped.',
@@ -1108,6 +1112,10 @@ const __T = {
     'active': '当前',
     'use_model': '使用',
     'no_sessions': '暂无会话',
+    'session_just_now': '刚刚',
+    'session_min_ago': '#{turn} 分钟前',
+    'session_hour_ago': '#{turn} 小时前',
+    'session_day_ago': '#{turn} 天前',
     'prune_empty': '清理空会话',
     'prune_all': '全部删除',
     'prune_confirm_empty': '将清理 {n} 个空会话，使用中的会话将自动跳过。',
@@ -2332,6 +2340,21 @@ function sessionTitle(s){
   const name=String(s.name||'').replace(/^.*\//,'').replace(/\.jsonl$/,'');
   return s.title||name.replace(/^\w+-/,'').replace(/T/,' ').replace(/[-_]/g,' ').slice(0,30);
 }
+// sessionTimeAgo renders a session's completion time (mtimeMilli = when its
+// last turn finished writing) as a compact relative age, falling back to a
+// locale date once the age is too large to stay scannable.
+function sessionTimeAgo(ms){
+  if(!ms||ms<=0)return '';
+  const diff=Date.now()-ms;
+  if(diff<60000)return __('session_just_now');
+  if(diff<3600000)return __('session_min_ago',Math.floor(diff/60000));
+  if(diff<86400000)return __('session_hour_ago',Math.floor(diff/3600000));
+  if(diff<604800000)return __('session_day_ago',Math.floor(diff/86400000));
+  const d=new Date(ms);
+  const opts={month:'short',day:'numeric'};
+  if(d.getFullYear()!==new Date().getFullYear())opts.year='numeric';
+  return d.toLocaleDateString(undefined,opts);
+}
 function renderSessions(){
   restoreDraft();
   const list=$('#session-list'); if(!list)return;
@@ -2352,8 +2375,10 @@ function renderSessions(){
   filtered.forEach(s=>{
     const item=el('div','session-item'+(s.current?' session-item--active':''));
     const title=sessionTitle(s);
-    const meta=s.turns?s.turns+' turns':'';
-    item.innerHTML='<svg class="session-item__icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div class="session-item__body"><div class="session-item__title">'+escHtml(title)+'</div><div class="session-item__meta">'+escHtml(meta)+'</div></div>'+(s.sessionId?'<button type="button" class="session-rename" data-name="'+escAttr(s.name)+'" title="'+escAttr(__('rename_session'))+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>':'')+'<button type="button" class="session-del" data-name="'+escAttr(s.name)+'" title="'+escAttr(__('delete_session'))+'">&times;</button>';
+    const age=sessionTimeAgo(s.mtimeMilli);
+    const meta=[s.turns?s.turns+' turns':'',age].filter(Boolean).join(' · ');
+    const exactTime=s.mtimeMilli>0?new Date(s.mtimeMilli).toLocaleString():'';
+    item.innerHTML='<svg class="session-item__icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div class="session-item__body"><div class="session-item__title">'+escHtml(title)+'</div><div class="session-item__meta" title="'+escAttr(exactTime)+'">'+escHtml(meta)+'</div></div>'+(s.sessionId?'<button type="button" class="session-rename" data-name="'+escAttr(s.name)+'" title="'+escAttr(__('rename_session'))+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>':'')+'<button type="button" class="session-del" data-name="'+escAttr(s.name)+'" title="'+escAttr(__('delete_session'))+'">&times;</button>';
     item.onclick=ev=>{if(ev.target.closest('.session-del,.session-rename')||running||s.current)return;post('/resume',{path:s.path,sessionId:s.sessionId,hostId:s.hostId,name:s.name}).then(async r=>{if(!r.ok){const detail=(await r.text().catch(()=>'')).trim();toast(__('resume_failed')+' (HTTP '+r.status+(detail?': '+detail:'')+')','warn');return;}log.innerHTML='';log.appendChild(welcome);showWelcome();hasVisibleHistory=false;checkpointCount=0;todosDismissed=false;resetCumulativeStats();loadSessions();fetchStatus();updateActionAvailability();setTimeout(()=>fetch('/history').then(r=>r.json()).then(msgs=>{renderHistoryMessages(msgs);fetchTodos();refreshCheckpointAvailability();}),300);}).catch(()=>toast(__('resume_failed'),'warn'));};
     list.appendChild(item);
   });

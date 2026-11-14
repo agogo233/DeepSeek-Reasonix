@@ -145,7 +145,7 @@ func (s *Server) canonicalSessionRows(r *http.Request, ctrl control.SessionAPI) 
 			resultSequence := info.ResultSequence
 			row := sessionListEntry{
 				HostID: info.Ref.HostID, SessionID: info.Ref.SessionID, Name: info.SessionID,
-				Title: info.Title, Turns: info.Turns, MtimeMilli: info.CreatedAt.UnixMilli(),
+				Title: info.Title, Turns: info.Turns, MtimeMilli: info.UpdatedAt.UnixMilli(),
 				Current:        bound && info.Ref == runtime.Ref(),
 				Preview:        info.Preview,
 				MetadataReady:  info.MetadataStatus == session.MetadataReady,
