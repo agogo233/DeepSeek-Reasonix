@@ -408,7 +408,10 @@ func (ag *authGate) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 // loginPage serves the embedded login HTML.
 func (ag *authGate) loginPage(w http.ResponseWriter, r *http.Request) {
+	// Embedded and changes with every build, and it can carry a server-injected
+	// error message; never let a browser or proxy cache it.
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write(loginHTML)
 }
 

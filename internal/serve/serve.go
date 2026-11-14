@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -663,12 +664,33 @@ func (s *Server) RunGracefulListener(ctx context.Context, ln net.Listener) error
 	}
 }
 
+// pageBuildStamp identifies the exact build of the embedded page. The short
+// digest changes whenever index.html changes, so a stale cached page can be
+// told apart from the current one at a glance; the VCS commit time is appended
+// when the toolchain recorded it.
+var pageBuildStamp = sync.OnceValue(func() string {
+	sum := sha256.Sum256(indexHTML)
+	stamp := fmt.Sprintf("%x", sum[:4])
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.time" && setting.Value != "" {
+				return stamp + " · " + setting.Value
+			}
+		}
+	}
+	return stamp
+})
+
 func (s *Server) index(w http.ResponseWriter, _ *http.Request) {
 	if setup, ok := s.providerSetupSnapshot(); ok && setup.Required {
 		s.providerSetupIndex(w)
 		return
 	}
+	// The page is compiled in and changes with every build; without a cache
+	// directive browsers heuristically cache it, hiding newly deployed UI
+	// until that heuristic expires.
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
 	_, _ = config.MigrateLegacyIfNeeded()
 	lang := "auto"
 	if cfg, err := config.Load(); err == nil {
@@ -678,6 +700,7 @@ func (s *Server) index(w http.ResponseWriter, _ *http.Request) {
 	}
 	html := string(indexHTML)
 	html = strings.ReplaceAll(html, "__LANG__", lang)
+	html = strings.ReplaceAll(html, "__BUILD__", pageBuildStamp())
 	_, _ = w.Write([]byte(html))
 }
 
