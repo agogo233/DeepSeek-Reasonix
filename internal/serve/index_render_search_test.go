@@ -265,3 +265,24 @@ func TestServeIndexWebUXEnhancements(t *testing.T) {
 		}
 	}
 }
+
+// Touch devices keep an element in :hover after a tap, and a :hover rule
+// (specificity 0,2,0) outranks a plain --active/--selected class (0,1,0), so a
+// picked option would never show its highlight on a phone. Every active or
+// selected state must therefore also declare its own :hover variant so it wins
+// the cascade on touch as well as on desktop.
+func TestServeIndexActiveStateBeatsHover(t *testing.T) {
+	html := string(indexHTML)
+	for _, want := range []string{
+		".sidebar__item--active,.sidebar__item--active:hover{background:var(--accent-soft);color:var(--accent)}",
+		".ask__opt--selected,.ask__opt--selected:hover{border-color:var(--accent);background:var(--accent-soft)}",
+		".rewind-picker__item--active,.rewind-picker__item--active:hover{background:var(--accent-soft);color:var(--accent)}",
+		".rewind-picker__scope--active,.rewind-picker__scope--active:hover{background:var(--accent-soft);color:var(--accent)}",
+		".toolbar__btn--active,.toolbar__btn--active:hover{background:var(--accent-soft);color:var(--accent);border-color:transparent}",
+		".session-item--active,.session-item--active:hover{background:var(--accent-soft);color:var(--accent)}",
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("serve index missing active-over-hover marker %q", want)
+		}
+	}
+}
