@@ -250,6 +250,15 @@ func TestServeIndexWebUXEnhancements(t *testing.T) {
 		"addUserMsg(m.content,m.createdAt)",
 		"appendReasoning(m.reasoning,m.createdAt)",
 		"appendText(m.content,m.createdAt)",
+		// mobile horizontal-overflow containment: long stderr/notice tokens wrap
+		// instead of being clipped by overflow:hidden ancestors, the welcome glow
+		// cannot exceed the narrow viewport, and the transcript scrolls within
+		// itself rather than widening the page.
+		".err-stderr{white-space:pre-wrap",
+		".notice,.compaction__body{word-break:break-word",
+		"width:min(360px,100%)",
+		".transcript{overflow:auto",
+		"position:relative;min-width:0}",
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("serve index missing web-ux marker %q", want)

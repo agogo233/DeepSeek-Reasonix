@@ -43,8 +43,8 @@ input,textarea{font:inherit;color:inherit}
 
 .app{display:grid;grid-template-columns:220px 1fr;grid-template-rows:1fr auto;height:100vh;height:100dvh}
 .sidebar{grid-row:1/3;background:var(--bg-2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-.transcript{overflow-y:auto;padding:24px 28px}
-.footer{border-top:1px solid var(--border);background:var(--bg);padding:12px 28px 16px;display:flex;flex-direction:column;gap:8px;position:relative}
+.transcript{overflow:auto;padding:24px 28px}
+.footer{border-top:1px solid var(--border);background:var(--bg);padding:12px 28px 16px;display:flex;flex-direction:column;gap:8px;position:relative;min-width:0}
 .footer::before{content:'';position:absolute;inset:-20px 0 auto 0;height:20px;background:linear-gradient(to top,var(--bg),transparent);pointer-events:none}
 .jump-latest{position:absolute;bottom:calc(100% + 14px);right:22px;width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--panel);border:1px solid var(--border-strong);color:var(--fg-2);box-shadow:var(--shadow-md);z-index:20;opacity:0;visibility:hidden;pointer-events:none;transform:translateY(8px);transition:opacity .18s ease,transform .18s ease,visibility .18s ease,background .15s ease,color .15s ease}
 .jump-latest svg{width:16px;height:16px}
@@ -136,6 +136,9 @@ input,textarea{font:inherit;color:inherit}
 .card[data-tone="danger"] .card-badge{background:var(--danger-soft);border-color:transparent;color:var(--danger)}
 .card[data-tone="accent"] .card-badge{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
 .card .err-body{padding:6px 12px;color:var(--danger);background:var(--danger-soft);font-family:var(--mono);font-size:12px;white-space:pre-wrap;border-top:1px solid var(--border)}
+/* stderr arrives as a bare <pre>, so the UA's white-space:pre would force one
+   unwrappable line that .card then clips off the right edge on phones. */
+.err-stderr{white-space:pre-wrap;word-break:break-word;max-height:240px;overflow-y:auto}
 .card[data-open="false"] .card-body,.card[data-open="false"] .card-nest{display:none}
 .card-nest{border-top:1px solid var(--border);background:var(--bg-2);padding:4px 10px 8px}
 .card-nest__label{font-family:var(--mono);font-size:10.5px;color:var(--muted-2);padding:4px 2px 2px}
@@ -166,6 +169,8 @@ input,textarea{font:inherit;color:inherit}
 .compaction__title{font-weight:600;color:var(--fg)}
 .compaction__body{margin-top:6px;padding-top:6px;border-top:1px solid var(--border);white-space:pre-wrap;font-family:var(--mono);font-size:11.5px;line-height:1.5;max-height:180px;overflow-y:auto;color:var(--fg-2);display:none}
 .compaction__body--open{display:block}
+/* both carry prose that can embed long URLs or base64 blobs with no spaces. */
+.notice,.compaction__body{word-break:break-word}
 
 /* approval */
 .approval{max-width:760px;background:var(--panel);border:1px solid var(--accent);border-radius:var(--radius-lg);padding:12px 14px;margin:8px auto;box-shadow:var(--shadow-md);animation:msg-in .2s ease}
@@ -291,7 +296,7 @@ input,textarea{font:inherit;color:inherit}
 
 /* welcome */
 .welcome{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;position:relative}
-.welcome::before{content:'';position:absolute;top:40%;left:50%;transform:translate(-50%,-50%);width:360px;height:360px;background:radial-gradient(circle,oklch(68% .16 38/.08) 0%,transparent 70%);pointer-events:none}
+.welcome::before{content:'';position:absolute;top:40%;left:50%;transform:translate(-50%,-50%);width:min(360px,100%);height:360px;background:radial-gradient(circle,oklch(68% .16 38/.08) 0%,transparent 70%);pointer-events:none}
 .welcome__brand{display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;position:relative}
 .welcome__logo{width:52px;height:52px;border-radius:13px;background:linear-gradient(135deg,var(--accent),var(--violet));display:flex;align-items:center;justify-content:center;font-family:var(--heading);font-weight:700;font-size:20px;color:oklch(99% 0 0);margin-bottom:16px;box-shadow:0 4px 18px oklch(68% .16 38/.2);position:relative}
 .welcome__title{font-family:var(--heading);font-size:24px;font-weight:700;letter-spacing:-.03em;position:relative}
