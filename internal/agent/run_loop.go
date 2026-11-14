@@ -50,6 +50,9 @@ func (s streamedTurn) assistantMessage() provider.Message {
 		ReasoningState: s.reasoningState, ThinkingBlocks: s.thinkingBlocks,
 		ReasoningSignature: s.signature, ReasoningID: s.reasoningID, ReasoningStatus: s.reasoningStatus,
 		ToolCalls: s.calls, ResponsesItems: s.responsesItems, ServerSearch: s.serverSearch,
+		// Local display metadata only: identity digests zero it and the request
+		// path zeroes it again, so provider bytes stay byte-stable.
+		CreatedAt: time.Now().UnixMilli(),
 	}
 }
 

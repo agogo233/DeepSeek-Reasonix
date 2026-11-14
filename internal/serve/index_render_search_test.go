@@ -117,8 +117,9 @@ func TestServeIndexSearchShortcuts(t *testing.T) {
 func TestServeIndexChatLayout(t *testing.T) {
 	html := string(indexHTML)
 	for _, want := range []string{
-		// User bubble: right-aligned, tinted, caret hidden.
-		".msg--user{display:flex;justify-content:flex-end}",
+		// User bubble: right-aligned (column layout so the timestamp sits under
+		// the bubble), tinted, caret hidden.
+		".msg--user{display:flex;flex-direction:column;align-items:flex-end}",
 		".msg__caret{display:none}",
 		".msg--user .msg__text{max-width:85%;background:var(--bubble-user)",
 		"--bubble-user:oklch(68% .16 38/.13)",
@@ -242,6 +243,13 @@ func TestServeIndexWebUXEnhancements(t *testing.T) {
 		"'session_hour_ago': '#{turn} 小时前'",
 		"'session_day_ago': '#{turn}d ago'",
 		"'session_day_ago': '#{turn} 天前'",
+		// per-message timestamps: assistant turns are stamped on commit,
+		// /history exposes them, and both bubbles render an absolute clock.
+		"function msgClock(",
+		"msg__time",
+		"addUserMsg(m.content,m.createdAt)",
+		"appendReasoning(m.reasoning,m.createdAt)",
+		"appendText(m.content,m.createdAt)",
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("serve index missing web-ux marker %q", want)

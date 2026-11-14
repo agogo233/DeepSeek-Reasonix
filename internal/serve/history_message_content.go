@@ -30,6 +30,9 @@ type historyMessage struct {
 	ToolCallID       string                           `json:"toolCallId,omitempty"`
 	ToolName         string                           `json:"toolName,omitempty"`
 	PresentedFiles   []provider.PresentedFile         `json:"presentedFiles,omitempty"`
+	// Local display timestamp (unix milliseconds); zero for system notices and
+	// for transcripts that predate the field.
+	CreatedAt int64 `json:"createdAt,omitempty"`
 }
 
 func historyMessages(msgs []provider.Message) []historyMessage {
@@ -48,7 +51,7 @@ func historyMessages(msgs []provider.Message) []historyMessage {
 				continue
 			}
 		}
-		hm := historyMessage{MessageID: m.ID, Role: string(m.Role), Content: historyMessageContent(m)}
+		hm := historyMessage{MessageID: m.ID, Role: string(m.Role), Content: historyMessageContent(m), CreatedAt: m.CreatedAt}
 		if m.Role == provider.RoleAssistant {
 			hm.Reasoning = m.ReasoningContent
 			for _, search := range m.ServerSearch {

@@ -84,10 +84,12 @@ input,textarea{font:inherit;color:inherit}
 
 .msg{max-width:760px;margin:0 auto 18px;animation:msg-in .25s ease}
 @keyframes msg-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
-.msg--user{display:flex;justify-content:flex-end}
+.msg--user{display:flex;flex-direction:column;align-items:flex-end}
 .msg__caret{display:none}
 .msg__text{white-space:pre-wrap;word-break:break-word;font-weight:500;line-height:1.65}
 .msg--user .msg__text{max-width:85%;background:var(--bubble-user);border:1px solid var(--bubble-user-border);border-radius:var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);padding:10px 14px}
+.msg__time{font-family:var(--mono);font-size:10px;color:var(--muted-2);flex-shrink:0;letter-spacing:.02em}
+.msg--user .msg__time{margin:4px 4px 0 0}
 .msg--assistant{color:var(--fg);line-height:1.7;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px 14px;box-shadow:var(--shadow-sm)}
 .msg--assistant .msg__text{font-weight:400}
 .msg__head{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
@@ -1447,7 +1449,7 @@ function setConnState(state) {
 }
 
 // ── messages ──
-function addUserMsg(text) { hasVisibleHistory=true; updateActionAvailability(); hideWelcome(); const d=el('div','msg msg--user'); d.appendChild(el('span','msg__caret','›')); d.appendChild(el('div','msg__text',text)); log.appendChild(d); scrollDown(true); currentMsg=null;currentText=null;currentReasoning=null;currentRaw='';currentReasoningRaw='';currentPlain=false;currentCursor=null; }
+function addUserMsg(text, time) { hasVisibleHistory=true; updateActionAvailability(); hideWelcome(); const d=el('div','msg msg--user'); d.appendChild(el('span','msg__caret','›')); d.appendChild(el('div','msg__text',text)); const ts=time===undefined?Date.now():time; const clock=msgClock(ts); if(clock){const t=el('span','msg__time',clock); t.title=new Date(ts).toLocaleString(); d.appendChild(t);} log.appendChild(d); scrollDown(true); currentMsg=null;currentText=null;currentReasoning=null;currentRaw='';currentReasoningRaw='';currentPlain=false;currentCursor=null; }
 // Per-message copy: prefers the raw markdown stored on the element at finalize
 // time, falling back to the rendered text while a turn is still streaming.
 function buildMsgCopy(msgEl) {
@@ -1461,7 +1463,10 @@ function buildMsgCopy(msgEl) {
   };
   return b;
 }
-function ensureMsg() { if(!currentMsg){hasVisibleHistory=true; updateActionAvailability(); hideWelcome();currentMsg=el('div','msg msg--assistant');const h=el('div','msg__head');h.appendChild(el('span','msg__dot'));h.appendChild(document.createTextNode('Reasonix'));h.appendChild(buildMsgCopy(currentMsg));currentMsg.appendChild(h);log.appendChild(currentMsg);} return currentMsg; }
+// ensureMsg time contract: undefined means a live streaming bubble, so stamp
+// the current time; an explicit 0 means an old transcript message with no
+// recorded timestamp, which must stay blank rather than fall back to "now".
+function ensureMsg(time) { if(!currentMsg){hasVisibleHistory=true; updateActionAvailability(); hideWelcome();currentMsg=el('div','msg msg--assistant');const h=el('div','msg__head');h.appendChild(el('span','msg__dot'));h.appendChild(document.createTextNode('Reasonix'));const ts=time===undefined?Date.now():time;const clock=msgClock(ts);if(clock){const t=el('span','msg__time',clock);t.title=new Date(ts).toLocaleString();h.appendChild(t);}h.appendChild(buildMsgCopy(currentMsg));currentMsg.appendChild(h);log.appendChild(currentMsg);} return currentMsg; }
 function mdRenderNow() {
   if(currentRenderTimer){ clearTimeout(currentRenderTimer); currentRenderTimer=0; }
   if(!currentMsg) return;
@@ -1476,9 +1481,9 @@ function mdSchedule() {
   if(currentRenderTimer) return;
   currentRenderTimer = setTimeout(()=>{ currentRenderTimer=0; mdRenderNow(); scrollDown(); }, MD_RENDER_MS);
 }
-function appendText(t) {
+function appendText(t, time) {
   if(!t) return;
-  const m = ensureMsg();
+  const m = ensureMsg(time);
   if(!currentText){ currentText = el('div','msg__text msg__md'); const c=m.querySelector('.cursor'); if(c)m.insertBefore(currentText,c); else m.appendChild(currentText); }
   if(!currentCursor){ currentCursor = el('span','cursor'); m.appendChild(currentCursor); }
   if(!currentPlain && currentRaw.length+(t||'').length > MD_PLAIN_LIMIT) currentPlain = true;
@@ -1487,9 +1492,9 @@ function appendText(t) {
   else mdSchedule();
   scrollDown();
 }
-function appendReasoning(t) {
+function appendReasoning(t, time) {
   if(!t) return;
-  const m = ensureMsg();
+  const m = ensureMsg(time);
   if(!currentReasoning){
     const w=el('div','reasoning'); const b=el('button','reasoning__toggle');
     b.innerHTML='<span class="reasoning__chevron">▶</span> '+__('thinking');
@@ -2276,13 +2281,13 @@ function renderHistoryMessages(ms){
   let seq=0;
   ms.forEach(m=>{
     if(m.role==='system')return;
-    if(m.role==='user'){if(m.content)addUserMsg(m.content);return;}
+    if(m.role==='user'){if(m.content)addUserMsg(m.content,m.createdAt);return;}
     if(m.role==='protocol_recovery'){showProtocolRecovery(m.protocolRecovery);return;}
     if(m.role==='final_readiness'){showFinalReadinessPause({missing:m.missing||[]});return;}
     if(m.role==='assistant'){
       (m.serverSearch||[]).forEach(search=>{if(search.sources_status==='not_provided')showNotice(__('search_sources_missing'));});
-      if(m.reasoning)appendReasoning(m.reasoning);
-      if(m.content)appendText(m.content);
+      if(m.reasoning)appendReasoning(m.reasoning,m.createdAt);
+      if(m.content)appendText(m.content,m.createdAt);
       if(m.content||m.reasoning)finalizeMsg();
       (m.toolCalls||[]).forEach(tc=>{
         const id=tc.id||'hist-tool-'+(seq++);
@@ -2339,6 +2344,17 @@ let sessionCount=0;
 function sessionTitle(s){
   const name=String(s.name||'').replace(/^.*\//,'').replace(/\.jsonl$/,'');
   return s.title||name.replace(/^\w+-/,'').replace(/T/,' ').replace(/[-_]/g,' ').slice(0,30);
+}
+// msgClock renders a message timestamp as an absolute clock: time-only for
+// today, date plus time within the same year, and a full date once the year
+// differs. Returns '' when the timestamp is unusable.
+function msgClock(ms){
+  if(!ms||ms<=0)return '';
+  const d=new Date(ms), now=new Date();
+  if(d.toDateString()===now.toDateString())return d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+  const opts={month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'};
+  if(d.getFullYear()!==now.getFullYear())opts.year='numeric';
+  return d.toLocaleString(undefined,opts);
 }
 // sessionTimeAgo renders a session's completion time (mtimeMilli = when its
 // last turn finished writing) as a compact relative age, falling back to a
