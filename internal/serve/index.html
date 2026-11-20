@@ -405,6 +405,14 @@ input,textarea{font:inherit;color:inherit}
 .session-rename{flex-shrink:0;display:none;align-items:center;justify-content:center;width:20px;height:20px;padding:0;border:none;background:none;color:var(--muted-2);cursor:pointer;border-radius:5px;transition:background .15s ease,color .15s ease}
 .session-item:hover .session-rename,.session-rename:focus-visible{display:inline-flex}
 .session-rename:hover{background:var(--card-hover);color:var(--fg)}
+.session-bucket__head{display:flex;align-items:center;gap:6px;padding:6px 8px 3px;cursor:pointer;user-select:none;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.session-bucket__head:hover{color:var(--fg-2)}
+.session-bucket__label{flex:1}
+.session-bucket__count{font-family:var(--mono);font-size:10px;color:var(--muted-2)}
+.session-bucket__chevron{width:12px;height:12px;flex-shrink:0;opacity:.6;transition:transform .15s ease}
+.session-bucket__head--collapsed .session-bucket__chevron{transform:rotate(-90deg)}
+.session-show-more{margin:2px 0 4px;padding:5px 8px;border:none;border-radius:6px;background:transparent;color:var(--accent);font-size:11.5px;cursor:pointer;text-align:left;font-family:inherit}
+.session-show-more:hover{background:var(--panel)}
 .session-rename svg{width:12px;height:12px}
 .rename-input{width:100%;background:var(--bg-2);border:1px solid var(--border-strong);border-radius:8px;color:var(--fg);font-size:13px;padding:8px 10px;outline:none;transition:border-color .18s ease,box-shadow .18s ease}
 .rename-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
@@ -1048,6 +1056,12 @@ const __T = {
     'active': 'Active',
     'use_model': 'Use',
     'no_sessions': 'No sessions',
+    'bucket_today': 'Today',
+    'bucket_yesterday': 'Yesterday',
+    'bucket_week': 'This week',
+    'bucket_month': 'This month',
+    'bucket_older': 'Earlier',
+    'session_show_more': 'Show more ({n})',
     'session_just_now': 'just now',
     'session_min_ago': '#{turn}m ago',
     'session_hour_ago': '#{turn}h ago',
@@ -1247,6 +1261,12 @@ const __T = {
     'active': '当前',
     'use_model': '使用',
     'no_sessions': '暂无会话',
+    'bucket_today': '今天',
+    'bucket_yesterday': '昨天',
+    'bucket_week': '本周',
+    'bucket_month': '本月',
+    'bucket_older': '更早',
+    'session_show_more': '显示更多 ({n})',
     'session_just_now': '刚刚',
     'session_min_ago': '#{turn} 分钟前',
     'session_hour_ago': '#{turn} 小时前',
@@ -2601,6 +2621,77 @@ function sessionTimeAgo(ms){
   if(d.getFullYear()!==new Date().getFullYear())opts.year='numeric';
   return d.toLocaleDateString(undefined,opts);
 }
+// ── session list arrangement ──
+// Sessions pile up quickly, so the sidebar groups them into time buckets and
+// keeps all but the most recent ones collapsed by default. Both the applied
+// defaults and manual toggles persist locally; storage is only a cache and
+// any failure degrades to the default arrangement.
+const SESSION_WINDOW = 5;
+const SESSION_BUCKET_META = [
+  ['today', 'bucket_today'],
+  ['yesterday', 'bucket_yesterday'],
+  ['week', 'bucket_week'],
+  ['month', 'bucket_month'],
+  ['older', 'bucket_older'],
+];
+let sessionBucketsState = (function(){
+  try {
+    const parsed = JSON.parse(localStorage.getItem('reasonix.serve.sessionBuckets.v1'));
+    if (parsed && parsed.version === 1 && Array.isArray(parsed.collapsed)) {
+      return { seeded: !!parsed.seeded, collapsed: new Set(parsed.collapsed.filter(k => typeof k === 'string')) };
+    }
+  } catch {}
+  return { seeded: false, collapsed: new Set() };
+})();
+let sessionWindowState = (function(){
+  try {
+    const parsed = JSON.parse(localStorage.getItem('reasonix.serve.sessionWindows.v1'));
+    if (parsed && parsed.version === 1 && Array.isArray(parsed.expanded)) {
+      return new Set(parsed.expanded.filter(k => typeof k === 'string'));
+    }
+  } catch {}
+  return new Set();
+})();
+function persistSessionBuckets(){
+  try { localStorage.setItem('reasonix.serve.sessionBuckets.v1', JSON.stringify({ version: 1, seeded: sessionBucketsState.seeded, collapsed: [...sessionBucketsState.collapsed] })); } catch {}
+}
+function persistSessionWindows(){
+  try { localStorage.setItem('reasonix.serve.sessionWindows.v1', JSON.stringify({ version: 1, expanded: [...sessionWindowState] })); } catch {}
+}
+// sessionBucketOf maps a session's last-activity time to a stable bucket key.
+// Day boundaries compare local dates, so "yesterday" stays intuitive around
+// midnight; unusable timestamps fall into the oldest bucket.
+function sessionBucketOf(ms){
+  if (!ms || ms <= 0) return 'older';
+  const d = new Date(ms), now = new Date();
+  if (d.toDateString() === now.toDateString()) return 'today';
+  const y = new Date(now); y.setDate(y.getDate() - 1);
+  if (d.toDateString() === y.toDateString()) return 'yesterday';
+  const diff = now.getTime() - ms;
+  if (diff <= 0) return 'today';
+  if (diff < 7 * 86400000) return 'week';
+  if (diff < 30 * 86400000) return 'month';
+  return 'older';
+}
+// groupSessionsByTime keeps the backend's newest-first order inside each
+// non-empty bucket; /sessions already arrives sorted, so one pass suffices.
+function groupSessionsByTime(rows){
+  const buckets = SESSION_BUCKET_META.map(([key, labelKey]) => ({ key, labelKey, items: [] }));
+  const byKey = {};
+  buckets.forEach(b => { byKey[b.key] = b; });
+  rows.forEach(s => { byKey[sessionBucketOf(s.mtimeMilli)].items.push(s); });
+  return buckets.filter(b => b.items.length > 0);
+}
+function sessionItemEl(s){
+  const item = el('div', 'session-item' + (s.current ? ' session-item--active' : ''));
+  const title = sessionTitle(s);
+  const age = sessionTimeAgo(s.mtimeMilli);
+  const meta = [s.turns ? s.turns + ' turns' : '', age].filter(Boolean).join(' · ');
+  const exactTime = s.mtimeMilli > 0 ? new Date(s.mtimeMilli).toLocaleString() : '';
+  item.innerHTML = '<svg class="session-item__icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div class="session-item__body"><div class="session-item__title">'+escHtml(title)+'</div><div class="session-item__meta" title="'+escAttr(exactTime)+'">'+escHtml(meta)+'</div></div>'+(s.sessionId?'<button type="button" class="session-rename" data-name="'+escAttr(s.name)+'" title="'+escAttr(__('rename_session'))+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>':'')+'<button type="button" class="session-del" data-name="'+escAttr(s.name)+'" title="'+escAttr(__('delete_session'))+'">&times;</button>';
+  item.onclick = ev => {if(ev.target.closest('.session-del,.session-rename')||running||s.current)return;post('/resume',{path:s.path,sessionId:s.sessionId,hostId:s.hostId,name:s.name}).then(async r=>{if(!r.ok){const detail=(await r.text().catch(()=>'')).trim();toast(__('resume_failed')+' (HTTP '+r.status+(detail?': '+detail:'')+')','warn');return;}log.innerHTML='';log.appendChild(welcome);showWelcome();hasVisibleHistory=false;checkpointCount=0;todosDismissed=false;resetCumulativeStats();loadSessions();refreshWorkspaceFiles();fetchStatus();updateActionAvailability();setTimeout(()=>fetch('/history').then(r=>r.json()).then(msgs=>{renderHistoryMessages(msgs);fetchTodos();refreshCheckpointAvailability();}),300);}).catch(()=>toast(__('resume_failed'),'warn'));};
+  return item;
+}
 function renderSessions(){
   restoreDraft();
   const list=$('#session-list'); if(!list)return;
@@ -2618,15 +2709,47 @@ function renderSessions(){
   if(sessionsCache.length===0){list.innerHTML='<div style="padding:10px;color:var(--muted-2);font-size:12px">'+__('no_sessions')+'</div>';return;}
   if(filtered.length===0){list.innerHTML='<div style="padding:10px;color:var(--muted-2);font-size:12px">'+__('no_sessions')+'</div>';return;}
   list.innerHTML='';
-  filtered.forEach(s=>{
-    const item=el('div','session-item'+(s.current?' session-item--active':''));
-    const title=sessionTitle(s);
-    const age=sessionTimeAgo(s.mtimeMilli);
-    const meta=[s.turns?s.turns+' turns':'',age].filter(Boolean).join(' · ');
-    const exactTime=s.mtimeMilli>0?new Date(s.mtimeMilli).toLocaleString():'';
-    item.innerHTML='<svg class="session-item__icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div class="session-item__body"><div class="session-item__title">'+escHtml(title)+'</div><div class="session-item__meta" title="'+escAttr(exactTime)+'">'+escHtml(meta)+'</div></div>'+(s.sessionId?'<button type="button" class="session-rename" data-name="'+escAttr(s.name)+'" title="'+escAttr(__('rename_session'))+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>':'')+'<button type="button" class="session-del" data-name="'+escAttr(s.name)+'" title="'+escAttr(__('delete_session'))+'">&times;</button>';
-    item.onclick=ev=>{if(ev.target.closest('.session-del,.session-rename')||running||s.current)return;post('/resume',{path:s.path,sessionId:s.sessionId,hostId:s.hostId,name:s.name}).then(async r=>{if(!r.ok){const detail=(await r.text().catch(()=>'')).trim();toast(__('resume_failed')+' (HTTP '+r.status+(detail?': '+detail:'')+')','warn');return;}log.innerHTML='';log.appendChild(welcome);showWelcome();hasVisibleHistory=false;checkpointCount=0;todosDismissed=false;resetCumulativeStats();loadSessions();refreshWorkspaceFiles();fetchStatus();updateActionAvailability();setTimeout(()=>fetch('/history').then(r=>r.json()).then(msgs=>{renderHistoryMessages(msgs);fetchTodos();refreshCheckpointAvailability();}),300);}).catch(()=>toast(__('resume_failed'),'warn'));};
-    list.appendChild(item);
+  // While searching, show every match flat: the reader has already narrowed
+  // the list, so hiding rows behind collapsed buckets only gets in the way.
+  if(q){ filtered.forEach(s => list.appendChild(sessionItemEl(s))); return; }
+  const buckets = groupSessionsByTime(filtered);
+  // First arrangement only: keep the bucket holding the current session and
+  // the most recent non-empty bucket expanded; collapse the rest. Later
+  // renders respect whatever the reader toggled.
+  if (!sessionBucketsState.seeded) {
+    sessionBucketsState.seeded = true;
+    buckets.forEach((b, i) => {
+      const keepOpen = i === 0 || b.items.some(s => s.current);
+      if (keepOpen) sessionBucketsState.collapsed.delete(b.key);
+      else sessionBucketsState.collapsed.add(b.key);
+    });
+    persistSessionBuckets();
+  }
+  buckets.forEach(b => {
+    const collapsed = sessionBucketsState.collapsed.has(b.key);
+    const head = el('div', 'session-bucket__head' + (collapsed ? ' session-bucket__head--collapsed' : ''));
+    head.innerHTML = '<span class="session-bucket__label">' + escHtml(__(b.labelKey)) + '</span><span class="session-bucket__count">' + b.items.length + '</span><svg class="session-bucket__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+    head.onclick = () => {
+      if (sessionBucketsState.collapsed.has(b.key)) sessionBucketsState.collapsed.delete(b.key);
+      else sessionBucketsState.collapsed.add(b.key);
+      persistSessionBuckets();
+      renderSessions();
+    };
+    list.appendChild(head);
+    if (collapsed) return;
+    const expanded = sessionWindowState.has(b.key);
+    (expanded ? b.items : b.items.slice(0, SESSION_WINDOW)).forEach(s => list.appendChild(sessionItemEl(s)));
+    if (!expanded && b.items.length > SESSION_WINDOW) {
+      const more = el('button', 'session-show-more');
+      more.type = 'button';
+      more.textContent = __('session_show_more').replace('{n}', b.items.length - SESSION_WINDOW);
+      more.onclick = () => {
+        sessionWindowState.add(b.key);
+        persistSessionWindows();
+        renderSessions();
+      };
+      list.appendChild(more);
+    }
   });
 }
 function loadSessions(){
