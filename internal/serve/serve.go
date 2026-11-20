@@ -539,6 +539,7 @@ func (s *Server) handler() http.Handler {
 	mux.HandleFunc("GET /context", s.context)
 	mux.HandleFunc("POST /submit", s.submit)
 	s.registerInboxRoutes(mux)
+	s.registerWorkspaceFileRoutes(mux)
 	mux.HandleFunc("POST /cancel", s.foregroundMutation(s.cancel))
 	mux.HandleFunc("POST /cancel-session", s.foregroundMutation(s.cancelSession))
 	mux.HandleFunc("POST /approve", s.foregroundMutation(s.approve))

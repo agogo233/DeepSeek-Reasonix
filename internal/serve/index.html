@@ -51,6 +51,45 @@ input,textarea{font:inherit;color:inherit}
 .jump-latest:hover{background:var(--card-hover);color:var(--fg)}
 .jump-latest--show{opacity:1;visibility:visible;pointer-events:auto;transform:translateY(0)}
 
+/* ── workspace files dock ── */
+.app.files-open{grid-template-columns:220px 1fr 340px}
+.footer{grid-column:2}
+.files-panel{display:none;grid-column:3;grid-row:1/3;min-width:0;background:var(--bg-2);border-left:1px solid var(--border);flex-direction:column;overflow:hidden}
+.app.files-open .files-panel{display:flex}
+.files-panel__head{display:flex;align-items:center;gap:4px;padding:8px 10px;border-bottom:1px solid var(--border);flex:0 0 auto}
+.files-panel__crumb{flex:1;min-width:0;font-size:12px;color:var(--fg-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px}
+.files-panel__btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;color:var(--fg-2);flex:0 0 auto;text-decoration:none}
+.files-panel__btn:hover{background:var(--card-hover);color:var(--fg)}
+.files-panel__btn svg{width:14px;height:14px}
+.files-panel__tree{flex:1 1 auto;overflow:auto;padding:4px 2px;min-height:0}
+.files-panel__empty{padding:14px 12px;color:var(--muted-2);font-size:12px}
+.files-tree__row{display:flex;align-items:center;gap:6px;padding:4px 8px;margin:0 4px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--fg);white-space:nowrap;overflow:hidden}
+.files-tree__row:hover{background:var(--card-hover)}
+.files-tree__row--active{background:var(--accent-soft)}
+.files-tree__twist{flex:0 0 14px;width:14px;height:14px;color:var(--muted-2);transition:transform .15s ease}
+.files-tree__twist svg{width:14px;height:14px;display:block}
+.files-tree__row--open .files-tree__twist{transform:rotate(90deg)}
+.files-tree__icon{flex:0 0 15px;width:15px;height:15px;color:var(--muted)}
+.files-tree__icon svg{width:15px;height:15px;display:block}
+.files-tree__icon--dir{color:var(--accent)}
+.files-tree__name{overflow:hidden;text-overflow:ellipsis}
+.files-tree__meta{margin-left:auto;padding-left:8px;color:var(--muted-2);font-size:11px;flex:0 0 auto}
+.files-tree__children{display:none}
+.files-tree__item--open>.files-tree__children{display:block}
+.files-panel__preview{flex:0 0 46%;display:none;flex-direction:column;border-top:1px solid var(--border);min-height:0}
+.files-panel__preview--on{display:flex}
+.files-panel__preview-head{display:flex;align-items:center;gap:4px;padding:8px 10px;border-bottom:1px solid var(--border);flex:0 0 auto}
+.files-panel__preview-body{flex:1;overflow:auto;min-height:0;background:var(--code-bg)}
+.files-panel__preview-body>pre{margin:0;padding:12px;font-family:var(--mono);font-size:12px;line-height:1.55;color:var(--fg);white-space:pre-wrap;word-break:break-all}
+.files-panel__preview-body>img{display:block;max-width:100%;max-height:100%;margin:0 auto;padding:12px;box-sizing:border-box}
+.files-panel__preview-body>audio,.files-panel__preview-body>video{width:100%;padding:12px;box-sizing:border-box}
+.files-panel__preview-body>iframe{width:100%;height:100%;border:none;background:#fff}
+.files-panel__preview-note{padding:16px 14px;color:var(--muted);font-size:12px}
+@media(max-width:768px){
+  .app.files-open{grid-template-columns:220px 1fr}
+  .files-panel{position:fixed;top:0;right:0;bottom:0;width:min(340px,88vw);z-index:120;box-shadow:var(--shadow-lg)}
+}
+
 .sidebar__brand{display:flex;align-items:center;gap:9px;padding:16px 14px 12px;border-bottom:1px solid var(--border)}
 .sidebar__logo{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--accent),var(--violet));display:flex;align-items:center;justify-content:center;font-family:var(--heading);font-weight:700;font-size:13px;color:oklch(99% 0 0)}
 .sidebar__name{font-family:var(--heading);font-size:14px;font-weight:600}
@@ -542,6 +581,10 @@ mark.srch--cur{background:var(--accent);color:oklch(99% 0 0)}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3"/><path d="M15 1v3"/><path d="M9 20v3"/><path d="M15 20v3"/><path d="M20 9h3"/><path d="M20 14h3"/><path d="M1 9h3"/><path d="M1 14h3"/></svg>
         <span>__('models')</span>
       </div>
+      <div class="sidebar__item" id="btn-files">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <span>__('files_panel')</span>
+      </div>
       <div class="sidebar__sep"></div>
       <div class="sidebar__item" id="btn-stats">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
@@ -597,6 +640,26 @@ mark.srch--cur{background:var(--accent);color:oklch(99% 0 0)}
       </div>
     </div>
   </section>
+
+  <aside class="files-panel" id="files-panel" aria-label="__('files_panel')">
+    <div class="files-panel__head">
+      <span class="files-panel__crumb" id="files-crumb"></span>
+      <button type="button" class="files-panel__btn" id="files-refresh" title="__('files_refresh')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
+      <button type="button" class="files-panel__btn" id="files-download-dir" title="__('files_download_folder')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+      <button type="button" class="files-panel__btn" id="files-close" title="__('files_close')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="files-panel__tree" id="files-tree">
+      <div class="files-panel__empty">__('loading')</div>
+    </div>
+    <div class="files-panel__preview" id="files-preview">
+      <div class="files-panel__preview-head">
+        <span class="files-panel__crumb" id="files-preview-name"></span>
+        <a class="files-panel__btn" id="files-preview-download" title="__('files_download')" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a>
+        <button type="button" class="files-panel__btn" id="files-preview-close">&times;</button>
+      </div>
+      <div class="files-panel__preview-body" id="files-preview-body"></div>
+    </div>
+  </aside>
 
   <footer class="footer">
     <div id="slash-menu-anchor"></div>
@@ -812,6 +875,15 @@ const __T = {
     'cost': 'Cost',
     'multi_currency': 'Multiple currencies',
     'balance': 'Balance',
+    'files_panel': 'Files',
+    'files_refresh': 'Refresh',
+    'files_download': 'Download',
+    'files_download_folder': 'Download folder (zip)',
+    'files_close': 'Close',
+    'files_empty': 'Empty folder',
+    'files_binary': 'This file type cannot be previewed. Download it to view the contents.',
+    'files_truncated': 'File is too large; preview truncated.',
+    'files_error': 'Could not load workspace files',
     'ready': 'Ready',
     'thinking': 'Thinking...',
     'retrying_status': 'Retrying ({attempt}/{max})...',
@@ -998,6 +1070,15 @@ const __T = {
     'cost': '费用',
     'multi_currency': '多币种',
     'balance': '余额',
+    'files_panel': '文件',
+    'files_refresh': '刷新',
+    'files_download': '下载',
+    'files_download_folder': '下载文件夹 (zip)',
+    'files_close': '关闭',
+    'files_empty': '空文件夹',
+    'files_binary': '该文件类型不支持预览，请下载后查看。',
+    'files_truncated': '文件过大，预览已截断。',
+    'files_error': '加载工作区文件失败',
     'ready': '就绪',
     'thinking': '思考中...',
     'retrying_status': '正在重试 ({attempt}/{max})...',
@@ -2402,7 +2483,7 @@ function renderSessions(){
     const meta=[s.turns?s.turns+' turns':'',age].filter(Boolean).join(' · ');
     const exactTime=s.mtimeMilli>0?new Date(s.mtimeMilli).toLocaleString():'';
     item.innerHTML='<svg class="session-item__icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div class="session-item__body"><div class="session-item__title">'+escHtml(title)+'</div><div class="session-item__meta" title="'+escAttr(exactTime)+'">'+escHtml(meta)+'</div></div>'+(s.sessionId?'<button type="button" class="session-rename" data-name="'+escAttr(s.name)+'" title="'+escAttr(__('rename_session'))+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>':'')+'<button type="button" class="session-del" data-name="'+escAttr(s.name)+'" title="'+escAttr(__('delete_session'))+'">&times;</button>';
-    item.onclick=ev=>{if(ev.target.closest('.session-del,.session-rename')||running||s.current)return;post('/resume',{path:s.path,sessionId:s.sessionId,hostId:s.hostId,name:s.name}).then(async r=>{if(!r.ok){const detail=(await r.text().catch(()=>'')).trim();toast(__('resume_failed')+' (HTTP '+r.status+(detail?': '+detail:'')+')','warn');return;}log.innerHTML='';log.appendChild(welcome);showWelcome();hasVisibleHistory=false;checkpointCount=0;todosDismissed=false;resetCumulativeStats();loadSessions();fetchStatus();updateActionAvailability();setTimeout(()=>fetch('/history').then(r=>r.json()).then(msgs=>{renderHistoryMessages(msgs);fetchTodos();refreshCheckpointAvailability();}),300);}).catch(()=>toast(__('resume_failed'),'warn'));};
+    item.onclick=ev=>{if(ev.target.closest('.session-del,.session-rename')||running||s.current)return;post('/resume',{path:s.path,sessionId:s.sessionId,hostId:s.hostId,name:s.name}).then(async r=>{if(!r.ok){const detail=(await r.text().catch(()=>'')).trim();toast(__('resume_failed')+' (HTTP '+r.status+(detail?': '+detail:'')+')','warn');return;}log.innerHTML='';log.appendChild(welcome);showWelcome();hasVisibleHistory=false;checkpointCount=0;todosDismissed=false;resetCumulativeStats();loadSessions();refreshWorkspaceFiles();fetchStatus();updateActionAvailability();setTimeout(()=>fetch('/history').then(r=>r.json()).then(msgs=>{renderHistoryMessages(msgs);fetchTodos();refreshCheckpointAvailability();}),300);}).catch(()=>toast(__('resume_failed'),'warn'));};
     list.appendChild(item);
   });
 }
@@ -2649,7 +2730,7 @@ $('#btn-plan').onclick=()=>void setPlan(!planMode);
 $('#btn-full').onclick=()=>void setMode('danger-full-access');
 $('#btn-goal').onclick=()=>toggleGoalMode();
 $('#goal-chip').onclick=()=>toggleGoalMode();
-$('#btn-new').onclick=async()=>{if(running){toast(__('session_running'),'warn');return;}try{const r=await post('/new');if(!r.ok){if(r.status!==403){const detail=(await r.text().catch(()=>'')).trim();toast(__('new_failed')+' (HTTP '+r.status+(detail?': '+detail:'')+')','warn');}return;}log.innerHTML='';log.appendChild(welcome);showWelcome();hasVisibleHistory=false;checkpointCount=0;todosState=[];todosDismissed=false;renderTodoPanel();resetCumulativeStats();loadSessions();updateActionAvailability();}catch(err){toast(__('new_failed'),'warn');}};
+$('#btn-new').onclick=async()=>{if(running){toast(__('session_running'),'warn');return;}try{const r=await post('/new');if(!r.ok){if(r.status!==403){const detail=(await r.text().catch(()=>'')).trim();toast(__('new_failed')+' (HTTP '+r.status+(detail?': '+detail:'')+')','warn');}return;}log.innerHTML='';log.appendChild(welcome);showWelcome();hasVisibleHistory=false;checkpointCount=0;todosState=[];todosDismissed=false;renderTodoPanel();resetCumulativeStats();loadSessions();refreshWorkspaceFiles();updateActionAvailability();}catch(err){toast(__('new_failed'),'warn');}};
 $('#btn-compact').onclick=()=>{if(actionDisabled('btn-compact')){toast(__('no_conversation'),'warn');return;}post('/compact');};
 $('#btn-rewind').onclick=()=>{if(actionDisabled('btn-rewind')){toast(__('no_checkpoints'),'warn');return;}openRewindPicker();};
 $('#btn-tree').onclick=()=>openBranches();
@@ -2663,7 +2744,7 @@ $('#branches-list').onclick=e=>{
   const id=btn.dataset.branchId;
   if(!id)return;
   closeBranches();
-  post('/submit',{input:'/switch '+id}).then(()=>{setTimeout(()=>{log.innerHTML='';log.appendChild(welcome);showWelcome();loadSessions();fetch('/history').then(r=>r.json()).then(msgs=>{renderHistoryMessages(msgs);fetchTodos();refreshCheckpointAvailability();});},300);});
+  post('/submit',{input:'/switch '+id}).then(()=>{setTimeout(()=>{log.innerHTML='';log.appendChild(welcome);showWelcome();loadSessions();refreshWorkspaceFiles();fetch('/history').then(r=>r.json()).then(msgs=>{renderHistoryMessages(msgs);fetchTodos();refreshCheckpointAvailability();});},300);});
 };
 $('#models-modal-close').onclick=()=>closeModels();
 $('#models-modal').onclick=e=>{if(e.target===e.currentTarget)closeModels();};
@@ -2998,6 +3079,204 @@ document.addEventListener('keydown', (e) => {
 
 // welcome examples
 $$('.welcome__ex').forEach(btn=>{btn.onclick=()=>{input.value=btn.dataset.prompt;send();};});
+
+// ── workspace files dock ──
+const FILES_ICONS = {
+  chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>',
+  dir: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
+  file: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
+};
+const FILES_MEDIA_EXT = {
+  html: ['html', 'htm'],
+  svg: ['svg'],
+  image: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'ico', 'bmp', 'avif'],
+  audio: ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'opus'],
+  video: ['mp4', 'webm', 'mov', 'm4v'],
+  pdf: ['pdf']
+};
+const appGrid = document.querySelector('.app');
+const filesPanel = $('#files-panel'), filesTree = $('#files-tree'), filesCrumb = $('#files-crumb');
+const filesPreview = $('#files-preview'), filesPreviewName = $('#files-preview-name');
+const filesPreviewBody = $('#files-preview-body'), filesPreviewDownload = $('#files-preview-download');
+const filesState = { root: '', currentDir: '', expanded: new Set(), cache: new Map(), active: null, seq: 0 };
+
+function filesPanelIsOpen() { return appGrid.classList.contains('files-open'); }
+function filesPreviewURL(rel) { return '/workspace/file/preview?path=' + encodeURIComponent(rel); }
+function filesMediaKind(name) {
+  const dot = name.lastIndexOf('.');
+  if (dot < 0) return '';
+  const ext = name.slice(dot + 1).toLowerCase();
+  for (const kind in FILES_MEDIA_EXT) if (FILES_MEDIA_EXT[kind].indexOf(ext) >= 0) return kind;
+  return '';
+}
+function filesIconEl(cls, svg) { const s = el('span', cls); s.innerHTML = svg; return s; }
+function filesFormatSize(n) {
+  if (typeof n !== 'number') return '';
+  if (n < 1024) return n + ' B';
+  const units = ['KB', 'MB', 'GB'];
+  let v = n, i = -1;
+  do { v /= 1024; i++; } while (v >= 1024 && i < units.length - 1);
+  return (v >= 10 ? Math.round(v) : v.toFixed(1)) + ' ' + units[i];
+}
+function filesFormatTime(ms) {
+  if (!ms) return '';
+  const d = new Date(ms);
+  return (Date.now() - ms < 86400000) ? d.toTimeString().slice(0, 5) : d.toLocaleDateString();
+}
+function filesFetchDir(rel) {
+  return fetch('/workspace/files' + (rel ? '?path=' + encodeURIComponent(rel) : '')).then(r => {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  });
+}
+function filesRenderCrumb() {
+  const base = filesState.root ? filesState.root.replace(/^.*[\\/]/, '') : '';
+  const rel = filesState.currentDir;
+  filesCrumb.textContent = rel ? base + '/' + rel : base;
+  filesCrumb.title = filesState.root ? (filesState.root + (rel ? '/' + rel : '')) : '';
+}
+function filesRenderRows(rel, entries, container) {
+  container.innerHTML = '';
+  if (!entries.length) { container.appendChild(el('div', 'files-panel__empty', __('files_empty'))); return; }
+  for (const entry of entries) {
+    const item = el('div', 'files-tree__item' + (filesState.expanded.has(entry.path) ? ' files-tree__item--open' : ''));
+    item.dataset.path = entry.path;
+    const row = el('div', 'files-tree__row' + (filesState.active === entry.path ? ' files-tree__row--active' : ''));
+    row.appendChild(filesIconEl('files-tree__twist', FILES_ICONS.chevron));
+    row.appendChild(filesIconEl('files-tree__icon' + (entry.isDir ? ' files-tree__icon--dir' : ''), entry.isDir ? FILES_ICONS.dir : FILES_ICONS.file));
+    row.appendChild(el('span', 'files-tree__name', entry.name));
+    if (!entry.isDir) {
+      const meta = [filesFormatSize(entry.size), filesFormatTime(entry.mtime)].filter(Boolean).join(' · ');
+      if (meta) row.appendChild(el('span', 'files-tree__meta', meta));
+    }
+    const children = el('div', 'files-tree__children');
+    item.appendChild(row);
+    item.appendChild(children);
+    row.onclick = () => {
+      if (entry.isDir) filesToggleDir(item, entry.path);
+      else filesOpenPreview(entry.path, entry.name);
+    };
+    container.appendChild(item);
+    if (entry.isDir && filesState.expanded.has(entry.path)) {
+      if (filesState.cache.has(entry.path)) filesRenderRows(entry.path, filesState.cache.get(entry.path), children);
+      else filesLoadDir(entry.path, children);
+    }
+  }
+}
+function filesLoadDir(rel, container) {
+  const seq = ++filesState.seq;
+  return filesFetchDir(rel).then(data => {
+    if (seq !== filesState.seq) return null;
+    filesState.root = data.root || filesState.root;
+    filesState.cache.set(rel, data.entries || []);
+    if (container) filesRenderRows(rel, data.entries || [], container);
+    return data.entries || [];
+  }).catch(() => {
+    if (container && seq === filesState.seq) {
+      container.innerHTML = '';
+      container.appendChild(el('div', 'files-panel__empty', __('files_error')));
+    }
+    return [];
+  });
+}
+function filesToggleDir(item, rel) {
+  filesState.currentDir = rel;
+  filesRenderCrumb();
+  if (item.classList.contains('files-tree__item--open')) {
+    item.classList.remove('files-tree__item--open');
+    filesState.expanded.delete(rel);
+    return;
+  }
+  item.classList.add('files-tree__item--open');
+  filesState.expanded.add(rel);
+  const children = item.querySelector(':scope > .files-tree__children');
+  if (filesState.cache.has(rel)) filesRenderRows(rel, filesState.cache.get(rel), children);
+  else filesLoadDir(rel, children);
+}
+function filesOpenPreview(rel, name) {
+  filesState.active = rel;
+  filesTree.querySelectorAll('.files-tree__row--active').forEach(r => r.classList.remove('files-tree__row--active'));
+  const item = filesTree.querySelector('.files-tree__item[data-path="' + (window.CSS && CSS.escape ? CSS.escape(rel) : rel) + '"]');
+  if (item) { const row = item.querySelector(':scope > .files-tree__row'); if (row) row.classList.add('files-tree__row--active'); }
+  filesPreview.classList.add('files-panel__preview--on');
+  filesPreviewName.textContent = name;
+  filesPreviewName.title = rel;
+  filesPreviewDownload.href = '/workspace/file/download?path=' + encodeURIComponent(rel);
+  filesPreviewBody.innerHTML = '';
+  const kind = filesMediaKind(name);
+  if (kind === 'image' || kind === 'svg') {
+    const img = el('img'); img.src = filesPreviewURL(rel); img.alt = name; filesPreviewBody.appendChild(img);
+  } else if (kind === 'video') {
+    const v = el('video'); v.src = filesPreviewURL(rel); v.controls = true; filesPreviewBody.appendChild(v);
+  } else if (kind === 'audio') {
+    const a = el('audio'); a.src = filesPreviewURL(rel); a.controls = true; filesPreviewBody.appendChild(a);
+  } else if (kind === 'pdf' || kind === 'html') {
+    const fr = el('iframe'); fr.src = filesPreviewURL(rel); fr.setAttribute('sandbox', ''); fr.title = name; filesPreviewBody.appendChild(fr);
+  } else {
+    fetch(filesPreviewURL(rel)).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(data => {
+      if (filesState.active !== rel) return;
+      if (data.kind === 'text') {
+        const pre = el('pre'); pre.textContent = data.body || '';
+        filesPreviewBody.appendChild(pre);
+        if (data.truncated) filesPreviewBody.appendChild(el('div', 'files-panel__empty', __('files_truncated')));
+      } else {
+        filesPreviewBody.appendChild(el('div', 'files-panel__preview-note', __('files_binary')));
+      }
+    }).catch(() => { if (filesState.active === rel) filesPreviewBody.appendChild(el('div', 'files-panel__preview-note', __('files_error'))); });
+  }
+}
+function filesClosePreview() {
+  filesPreview.classList.remove('files-panel__preview--on');
+  filesPreviewBody.innerHTML = '';
+  filesPreviewDownload.removeAttribute('href');
+  filesState.active = null;
+}
+function filesReloadTree(keepExpansion) {
+  filesState.seq++;
+  const seq = filesState.seq;
+  filesState.cache.clear();
+  if (!keepExpansion) filesState.expanded.clear();
+  filesState.currentDir = '';
+  filesClosePreview();
+  filesTree.innerHTML = '';
+  filesTree.appendChild(el('div', 'files-panel__empty', __('loading')));
+  filesFetchDir('').then(data => {
+    if (seq !== filesState.seq) return;
+    filesState.root = data.root || '';
+    filesState.cache.set('', data.entries || []);
+    filesRenderCrumb();
+    filesRenderRows('', data.entries || [], filesTree);
+  }).catch(() => {
+    if (seq !== filesState.seq) return;
+    filesTree.innerHTML = '';
+    filesTree.appendChild(el('div', 'files-panel__empty', __('files_error')));
+  });
+}
+function openFilesPanel() {
+  appGrid.classList.add('files-open');
+  try { localStorage.setItem('files_panel_open', '1'); } catch (e) {}
+  filesReloadTree(true);
+}
+function closeFilesPanel() {
+  appGrid.classList.remove('files-open');
+  filesClosePreview();
+  try { localStorage.setItem('files_panel_open', '0'); } catch (e) {}
+}
+function refreshWorkspaceFiles() { if (filesPanelIsOpen()) filesReloadTree(false); }
+
+$('#btn-files').onclick = () => { if (filesPanelIsOpen()) closeFilesPanel(); else openFilesPanel(); };
+$('#files-close').onclick = closeFilesPanel;
+$('#files-refresh').onclick = () => filesReloadTree(true);
+$('#files-preview-close').onclick = filesClosePreview;
+$('#files-download-dir').onclick = () => {
+  const a = document.createElement('a');
+  a.href = '/workspace/files/download?path=' + encodeURIComponent(filesState.currentDir);
+  a.download = '';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+};
+try { if (localStorage.getItem('files_panel_open') === '1') openFilesPanel(); } catch (e) {}
 
 // initial fetch
 fetchStatus();
