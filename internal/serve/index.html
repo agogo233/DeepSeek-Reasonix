@@ -50,6 +50,27 @@ input,textarea{font:inherit;color:inherit}
 .jump-latest svg{width:16px;height:16px}
 .jump-latest:hover{background:var(--card-hover);color:var(--fg)}
 .jump-latest--show{opacity:1;visibility:visible;pointer-events:auto;transform:translateY(0)}
+/* ── conversation outline ── */
+/* prev/next arrows sit above jump-latest on the same footer anchor, so both
+   shift left together when the workspace files dock takes a grid column */
+.turn-nav{position:absolute;bottom:calc(100% + 56px);right:22px;display:flex;flex-direction:column;gap:6px;z-index:20;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .18s ease,visibility .18s ease}
+.turn-nav--show{opacity:1;visibility:visible;pointer-events:auto}
+.turn-nav button{width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--panel);border:1px solid var(--border-strong);color:var(--fg-2);box-shadow:var(--shadow-md);transition:background .15s ease,color .15s ease}
+.turn-nav button:hover{background:var(--card-hover);color:var(--fg)}
+.turn-nav button:disabled{opacity:.35;cursor:default}
+.turn-nav button svg{width:15px;height:15px}
+/* mobile toasts float at the same offset — park the arrows above them */
+@media(max-width:768px){.turn-nav{bottom:calc(100% + 104px)}}
+/* a jumped reply lands below the fixed in-session search bar when it is open */
+.msg--user{scroll-margin-top:56px}
+.msg--user.flash .msg__text{animation:turn-flash 1.2s ease}
+@keyframes turn-flash{0%{box-shadow:0 0 0 3px var(--accent);background:var(--accent-soft)}70%{box-shadow:0 0 0 3px var(--accent)}100%{box-shadow:none}}
+.outline-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-2);margin-bottom:6px;cursor:pointer;transition:background .15s ease,border-color .15s ease}
+.outline-item:hover{background:var(--card-hover);border-color:var(--border-strong)}
+.outline-item__no{flex:0 0 auto;min-width:26px;padding:0 4px;height:24px;border-radius:7px;background:var(--accent-soft);color:var(--accent);font-family:var(--mono);font-size:11.5px;font-weight:600;display:inline-flex;align-items:center;justify-content:center}
+.outline-item__text{flex:1;min-width:0;font-size:13px;color:var(--fg);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.outline-item__time{flex:0 0 auto;font-family:var(--mono);font-size:10.5px;color:var(--muted-2)}
+.outline-empty{padding:18px;text-align:center;color:var(--muted-2);font-size:13px}
 
 /* ── workspace files dock ── */
 .app.files-open{grid-template-columns:220px 1fr 340px}
@@ -590,6 +611,10 @@ mark.srch--cur{background:var(--accent);color:oklch(99% 0 0)}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
         <span>__('stats')</span>
       </div>
+      <div class="sidebar__item" id="btn-outline">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.4" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.4" fill="currentColor" stroke="none"/></svg>
+        <span>__('outline')</span>
+      </div>
     </nav>
     <div class="sidebar__label-row"><span class="sidebar__label" style="padding:0">__('sessions')</span><span id="session-count" class="session-item__meta"></span></div>
     <div class="session-search">
@@ -726,6 +751,10 @@ mark.srch--cur{background:var(--accent);color:oklch(99% 0 0)}
     <button type="button" class="jump-latest" id="jump-latest" title="__('jump_latest')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
     </button>
+    <div class="turn-nav" id="turn-nav">
+      <button type="button" id="turn-prev" title="__('turn_prev')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
+      <button type="button" id="turn-next" title="__('turn_next')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></button>
+    </div>
     <div class="toasts" id="toasts" aria-live="polite"></div>
   </footer>
 </div>
@@ -786,6 +815,18 @@ mark.srch--cur{background:var(--accent);color:oklch(99% 0 0)}
       <div class="branch-tree" id="branches-tree">__('loading')</div>
       <div class="branch-list" id="branches-list"></div>
     </div>
+  </div>
+</div>
+
+<!-- conversation outline modal -->
+<div class="modal-overlay" id="outline-modal" style="display:none">
+  <div class="modal">
+    <div class="modal__head">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.4" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.4" fill="currentColor" stroke="none"/></svg>
+      __('outline')
+      <span class="modal__close" id="outline-close">&times;</span>
+    </div>
+    <div class="modal__body" id="outline-list"></div>
   </div>
 </div>
 
@@ -1038,6 +1079,10 @@ const __T = {
     'delete_confirm': 'Delete this session?',
     'welcome_tag': 'AI coding agent',
     'jump_latest': 'Back to latest',
+    'outline': 'Conversation outline',
+    'outline_empty': 'No replies of yours in this session yet',
+    'turn_prev': 'Previous reply',
+    'turn_next': 'Next reply',
     'hint_commands': '/ commands',
     'hint_mode': 'Plan',
     'hint_rewind': 'Esc×2 rewind',
@@ -1233,6 +1278,10 @@ const __T = {
     'delete_confirm': '删除此会话？',
     'welcome_tag': 'AI 编码助手',
     'jump_latest': '回到最新',
+    'outline': '对话大纲',
+    'outline_empty': '当前会话还没有你的回复',
+    'turn_prev': '上一条回复',
+    'turn_next': '下一条回复',
     'hint_commands': '/ 命令',
     'hint_mode': '计划',
     'hint_rewind': 'Esc×2 回退',
@@ -1389,10 +1438,103 @@ let pinnedToBottom=true;
 const JUMP_GAP = 200;
 function atBottom() { return log.scrollHeight-log.scrollTop-log.clientHeight<40; }
 function updateJumpLatest() { if(!jumpLatest)return; jumpLatest.classList.toggle('jump-latest--show', log.scrollHeight-log.scrollTop-log.clientHeight>JUMP_GAP); }
-log.addEventListener('scroll',()=>{pinnedToBottom=atBottom();updateJumpLatest();});
+log.addEventListener('scroll',()=>{pinnedToBottom=atBottom();updateJumpLatest();updateTurnNav();});
 log.addEventListener('wheel',e=>{if(e.deltaY<0&&log.scrollHeight>log.clientHeight)pinnedToBottom=false;},{passive:true});
 function scrollDown(force) { updateJumpLatest(); if(force)pinnedToBottom=true; if(!pinnedToBottom)return; requestAnimationFrame(()=>{if(force)pinnedToBottom=true; else if(!pinnedToBottom)return; log.scrollTo({top:log.scrollHeight,behavior:'instant'});updateJumpLatest();});}
 if(jumpLatest){jumpLatest.setAttribute('aria-label',__('jump_latest'));jumpLatest.onclick=()=>{pinnedToBottom=true;scrollDown(true);};}
+
+// ── conversation outline ──
+// Lists every user reply of the current session so a long transcript can be
+// navigated by ordinal. The rendered DOM is the source of truth: /history
+// paints the whole session into #log, so collecting .msg--user nodes always
+// matches what is on screen, and a MutationObserver rebuilds the outline when
+// history renders, turns stream in, a rewind prunes, or the session switches.
+const outlineModal = $('#outline-modal'), outlineList = $('#outline-list');
+const turnNav = $('#turn-nav'), turnPrevBtn = $('#turn-prev'), turnNextBtn = $('#turn-next');
+function outlineUserMsgs() { return Array.from(log.querySelectorAll('.msg--user')); }
+let outlineRendered = [];
+function renderOutline(force) {
+  if(!outlineList)return;
+  const ms = outlineUserMsgs();
+  // Replies are immutable once painted; skip the rebuild while the node set
+  // is unchanged so an open modal keeps its scroll position during streaming.
+  if(!force&&ms.length===outlineRendered.length&&ms.every((m,i)=>m===outlineRendered[i]))return;
+  outlineRendered = ms;
+  outlineList.innerHTML = '';
+  if(!ms.length){ outlineList.appendChild(el('div','outline-empty',__('outline_empty'))); return; }
+  ms.forEach((m,i)=>{
+    const text = m.querySelector('.msg__text')?.textContent || '';
+    const time = m.querySelector('.msg__time');
+    const item = el('div','outline-item');
+    item.appendChild(el('span','outline-item__no',String(i+1)));
+    item.appendChild(el('span','outline-item__text',compactText(text,60)));
+    item.appendChild(el('span','outline-item__time',time?time.textContent:'—'));
+    item.onclick = () => { closeOutline(); jumpToUserMsg(m); };
+    outlineList.appendChild(item);
+  });
+}
+function jumpToUserMsg(node) {
+  if(!node||!node.isConnected)return;
+  pinnedToBottom = false;
+  node.scrollIntoView({block:'start',behavior:'smooth'});
+  node.classList.remove('flash'); void node.offsetWidth; node.classList.add('flash');
+  setTimeout(()=>node.classList.remove('flash'),1300);
+}
+// The current reply is the last one whose top has passed the transcript top.
+function currentUserTurnIndex() {
+  const ms = outlineUserMsgs();
+  const top = log.getBoundingClientRect().top;
+  for(let i=ms.length-1;i>=0;i--){
+    if(ms[i].getBoundingClientRect().top-top<12)return i;
+  }
+  return -1;
+}
+function updateTurnNav() {
+  if(!turnNav)return;
+  const ms = outlineUserMsgs();
+  turnNav.classList.toggle('turn-nav--show',ms.length>=2);
+  if(ms.length<2)return;
+  const cur = currentUserTurnIndex();
+  if(turnPrevBtn)turnPrevBtn.disabled = cur<=0;
+  if(turnNextBtn)turnNextBtn.disabled = cur>=ms.length-1;
+}
+function stepTurn(delta) {
+  const ms = outlineUserMsgs();
+  if(ms.length<2)return;
+  const next = Math.min(ms.length-1,Math.max(0,currentUserTurnIndex()+delta));
+  jumpToUserMsg(ms[next]);
+}
+if(turnPrevBtn){turnPrevBtn.setAttribute('aria-label',__('turn_prev'));turnPrevBtn.onclick=()=>stepTurn(-1);}
+if(turnNextBtn){turnNextBtn.setAttribute('aria-label',__('turn_next'));turnNextBtn.onclick=()=>stepTurn(1);}
+function openOutline() { renderOutline(true); if(outlineModal)outlineModal.style.display='flex'; }
+function closeOutline() { if(outlineModal)outlineModal.style.display='none'; }
+const btnOutline = $('#btn-outline');
+if(btnOutline)btnOutline.onclick = openOutline;
+const outlineClose = $('#outline-close');
+if(outlineClose)outlineClose.onclick = closeOutline;
+if(outlineModal){
+  outlineModal.addEventListener('click',e=>{ if(e.target===outlineModal)closeOutline(); });
+  // Capture-phase Esc: while the outline modal is open it owns the key, so
+  // the composer's Esc×2 rewind, /cancel, slash menu, approval cards and the
+  // search bar never see it. A closed modal passes every Esc through untouched.
+  document.addEventListener('keydown',e=>{
+    if(e.key!=='Escape'||outlineModal.style.display==='none')return;
+    e.stopPropagation();
+    closeOutline();
+  },true);
+}
+// While the modal is closed only the cheap arrow refresh runs per mutation
+// burst; the list itself is rebuilt on open and on each burst while open.
+let outlineFrame = 0;
+const outlineObserver = new MutationObserver(()=>{
+  if(outlineFrame)return;
+  outlineFrame = requestAnimationFrame(()=>{
+    outlineFrame = 0;
+    updateTurnNav();
+    if(outlineModal&&outlineModal.style.display!=='none')renderOutline();
+  });
+});
+outlineObserver.observe(log,{childList:true});
 function hideWelcome() { if(welcome) welcome.style.display='none';}
 function showWelcome() { if(welcome) welcome.style.display='';updateJumpLatest();}
 // Global single-key shortcuts must stay dead while the user is typing (the
