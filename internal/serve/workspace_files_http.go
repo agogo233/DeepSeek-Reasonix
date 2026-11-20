@@ -369,7 +369,7 @@ func workspaceZipWrite(zw *zip.Writer, root, absDir string) error {
 		if err != nil {
 			return nil
 		}
-		hdr := &zip.Header{
+		hdr := &zip.FileHeader{
 			Name:     filepath.ToSlash(entryRel),
 			Method:   zip.Deflate,
 			Modified: info.ModTime(),
