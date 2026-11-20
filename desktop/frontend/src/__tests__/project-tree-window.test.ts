@@ -56,6 +56,13 @@ assert.equal(activeOutside.hasHiddenLoadedRows, true);
 const activeOnlyOverflow = projectTreeWindowProjection(topics(6), 5, (node) => node.topicId === "topic-6");
 assert.equal(activeOnlyOverflow.rows.length, 6);
 assert.equal(activeOnlyOverflow.hasHiddenLoadedRows, false, "an active fallback row alone does not imply hidden loaded rows");
+assert.equal(activeOnlyOverflow.hiddenCount, 0, "an active fallback row hides no additional loaded rows");
+
+const plainWindow = projectTreeWindowProjection(many, PROJECT_TREE_WINDOW_INITIAL, () => false);
+assert.equal(plainWindow.rows.length, PROJECT_TREE_WINDOW_INITIAL);
+assert.equal(plainWindow.hasHiddenLoadedRows, true);
+assert.equal(plainWindow.hiddenCount, many.length - PROJECT_TREE_WINDOW_INITIAL, "the show-more label counts every loaded but unpainted row");
+assert.equal(activeOutside.hiddenCount, many.length - activeOutside.rows.length, "the active fallback row is not counted as hidden");
 
 const activeInside = projectTreeWindowRows(many, 5, (node) => node.topicId === "topic-3");
 assert.equal(activeInside.length, 5);

@@ -1024,7 +1024,7 @@ export function ProjectTree({
     }
   }, [onTopicsChanged, refresh, tree]);
 
-  const organization = useProjectTreeOrganization({ tree, refresh, onTopicsChanged, organizationRevision, sortMode: creationTopics ? "updated" : workbenchSortMode });
+  const organization = useProjectTreeOrganization({ tree, refresh, onTopicsChanged, organizationRevision, sortMode: creationTopics ? "updated" : workbenchSortMode, isActiveNode: (node) => topicIsActive(node, activeScope, activeWorkspaceRoot, activeTopicId, activeSessionPath, activeRemote) });
 
   const clearProjectDrag = useCallback(() => {
     setDragProjectRoot(null);

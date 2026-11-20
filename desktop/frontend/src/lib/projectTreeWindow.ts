@@ -23,36 +23,98 @@ export function projectTreeListShowsLoading(state: ProjectTreeListPageState | un
 
 const runtimeWindowLimits = new Map<string, number>();
 
+// Expanded per-group windows survive restarts so a reader who widened a busy
+// group keeps that width without re-clicking. localStorage is only a cache;
+// corrupt or unavailable storage degrades to the default window.
+const WINDOW_LIMITS_STORAGE_KEY = "reasonix.projectTree.windowLimits.v1";
+const WINDOW_LIMITS_STORAGE_VERSION = 1;
+
+let windowLimitsHydrated = false;
+function hydrateWindowLimits(): void {
+  if (windowLimitsHydrated) return;
+  windowLimitsHydrated = true;
+  if (typeof localStorage === "undefined") return;
+  try {
+    const raw = localStorage.getItem(WINDOW_LIMITS_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as { version?: number; limits?: Record<string, number> };
+    if (parsed?.version !== WINDOW_LIMITS_STORAGE_VERSION) return;
+    if (typeof parsed.limits !== "object" || parsed.limits === null || Array.isArray(parsed.limits)) return;
+    for (const [key, limit] of Object.entries(parsed.limits)) {
+      if (typeof limit === "number" && Number.isFinite(limit) && limit > PROJECT_TREE_WINDOW_INITIAL) {
+        runtimeWindowLimits.set(key, limit);
+      }
+    }
+  } catch {
+    // Storage unavailable or corrupt; keep the default windows.
+  }
+}
+
+function persistWindowLimits(): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(WINDOW_LIMITS_STORAGE_KEY, JSON.stringify({
+      version: WINDOW_LIMITS_STORAGE_VERSION,
+      limits: Object.fromEntries(runtimeWindowLimits),
+    }));
+  } catch {
+    // Private mode or quota; the in-memory window still applies for this run.
+  }
+}
+
 export function projectTreeRuntimeWindowLimits(): Record<string, number> {
+  hydrateWindowLimits();
   return Object.fromEntries(runtimeWindowLimits);
 }
 
 export function rememberProjectTreeWindowLimit(key: string, limit: number): void {
-  if (limit <= PROJECT_TREE_WINDOW_INITIAL) runtimeWindowLimits.delete(key);
-  else runtimeWindowLimits.set(key, limit);
+  hydrateWindowLimits();
+  if (limit <= PROJECT_TREE_WINDOW_INITIAL) {
+    if (!runtimeWindowLimits.delete(key)) return;
+  } else {
+    if (runtimeWindowLimits.get(key) === limit) return;
+    runtimeWindowLimits.set(key, limit);
+  }
+  persistWindowLimits();
 }
 
 export function forgetProjectTreeWindowLimit(key: string): void {
-  runtimeWindowLimits.delete(key);
+  hydrateWindowLimits();
+  if (!runtimeWindowLimits.delete(key)) return;
+  persistWindowLimits();
 }
 
 export function forgetProjectTreeWindowLimits(projectKeys: ReadonlySet<string>): void {
+  hydrateWindowLimits();
+  let changed = false;
   for (const key of runtimeWindowLimits.keys()) {
     const separator = key.indexOf("\u001f");
     const projectKey = separator >= 0 ? key.slice(0, separator) : key;
-    if (!projectKeys.has(projectKey)) runtimeWindowLimits.delete(key);
+    if (!projectKeys.has(projectKey)) {
+      runtimeWindowLimits.delete(key);
+      changed = true;
+    }
   }
+  if (changed) persistWindowLimits();
 }
 
 export function resetProjectTreeRuntimeWindowLimits(projectKey?: string): void {
+  hydrateWindowLimits();
   if (!projectKey) {
+    if (runtimeWindowLimits.size === 0) return;
     runtimeWindowLimits.clear();
+    persistWindowLimits();
     return;
   }
   const prefix = `${projectKey}\u001f`;
+  let changed = false;
   for (const key of runtimeWindowLimits.keys()) {
-    if (key.startsWith(prefix)) runtimeWindowLimits.delete(key);
+    if (key.startsWith(prefix)) {
+      runtimeWindowLimits.delete(key);
+      changed = true;
+    }
   }
+  if (changed) persistWindowLimits();
 }
 
 export type ProjectTreeRequestLimiter = {
@@ -196,6 +258,8 @@ export async function reloadProjectTreeTopicLists(
 export type ProjectTreeWindowProjection = {
   rows: ProjectNode[];
   hasHiddenLoadedRows: boolean;
+  // Loaded rows kept out of the painted window; drives the "show more (n)" label.
+  hiddenCount: number;
 };
 
 export function projectTreeWindowProjection(
@@ -203,7 +267,7 @@ export function projectTreeWindowProjection(
   limit: number,
   isActive: (node: ProjectNode) => boolean,
 ): ProjectTreeWindowProjection {
-  if (rows.length <= limit) return { rows, hasHiddenLoadedRows: false };
+  if (rows.length <= limit) return { rows, hasHiddenLoadedRows: false, hiddenCount: 0 };
   const visible = rows.slice(0, limit);
   const active = rows.find((row) => isActive(row));
   const projected = !active || visible.some((row) => row.key === active.key)
@@ -213,6 +277,7 @@ export function projectTreeWindowProjection(
   return {
     rows: projected,
     hasHiddenLoadedRows: rows.some((row) => !visibleKeys.has(row.key)),
+    hiddenCount: Math.max(0, rows.length - projected.length),
   };
 }
 
