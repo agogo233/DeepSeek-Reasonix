@@ -28619,13 +28619,7 @@ body > .mermaid-diagram--fullscreen {
 }
 .project-tree__group-children {
   padding-left: 0;
-  padding-bottom: 3px;
 }
-
-.project-tree__group + .project-tree__group {
-  margin-top: 2px;
-}
-
 .runtime-activity-indicator {
   width: 10px;
   height: 10px;

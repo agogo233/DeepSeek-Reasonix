@@ -18,49 +18,6 @@ export type ProjectDropPosition = "before" | "after";
 export const GLOBAL_PROJECT_ORDER_KEY = "__global__";
 const TOPIC_DRAG_TYPE = "application/x-reasonix-topic-id";
 
-// Session groups collapse by default: until the reader takes over, only the
-// group holding the active session and the most recently active group stay
-// expanded. Both the applied defaults and any manual toggles persist locally,
-// so the sidebar keeps its shape across restarts. localStorage is a cache;
-// corrupt or unavailable storage degrades to the default arrangement.
-const COLLAPSED_GROUPS_STORAGE_KEY = "reasonix.projectTree.collapsedGroups.v1";
-const COLLAPSED_GROUPS_STORAGE_VERSION = 1;
-type ProjectTreeCollapseStorage = { version: number; seededKeys: string[]; collapsed: string[] };
-
-function readProjectTreeCollapseStorage(): { seededKeys: Set<string>; collapsed: Set<string> } {
-  if (typeof localStorage !== "undefined") {
-    try {
-      const raw = localStorage.getItem(COLLAPSED_GROUPS_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as ProjectTreeCollapseStorage;
-        if (parsed?.version === COLLAPSED_GROUPS_STORAGE_VERSION) {
-          return {
-            seededKeys: new Set(asArray(parsed.seededKeys).filter((key): key is string => typeof key === "string")),
-            collapsed: new Set(asArray(parsed.collapsed).filter((key): key is string => typeof key === "string")),
-          };
-        }
-      }
-    } catch {
-      // Fall through to the default arrangement.
-    }
-  }
-  return { seededKeys: new Set(), collapsed: new Set() };
-}
-
-function persistProjectTreeCollapse(seededKeys: ReadonlySet<string>, collapsed: ReadonlySet<string>): void {
-  if (typeof localStorage === "undefined") return;
-  try {
-    const payload: ProjectTreeCollapseStorage = {
-      version: COLLAPSED_GROUPS_STORAGE_VERSION,
-      seededKeys: [...seededKeys],
-      collapsed: [...collapsed],
-    };
-    localStorage.setItem(COLLAPSED_GROUPS_STORAGE_KEY, JSON.stringify(payload));
-  } catch {
-    // Private mode or quota; the in-memory arrangement still applies.
-  }
-}
-
 function projectOrderKey(node: ProjectNode): string {
   if (node.kind === "global_folder") return GLOBAL_PROJECT_ORDER_KEY;
   if (node.kind === "project" && node.root) return node.root;
@@ -207,7 +164,6 @@ export function useProjectTreeOrganization({
   organizationRevision = 0,
   sortMode,
   bindings = app,
-  isActiveNode,
 }: {
   tree: ProjectNode[];
   refresh: ProjectTreeRefresh;
@@ -216,8 +172,6 @@ export function useProjectTreeOrganization({
   // The activity order on screen; a first manual move starts from it.
   sortMode?: string;
   bindings?: ProjectTreeOrganizationBindings;
-  // Identifies the session the reader is looking at; its group stays expanded.
-  isActiveNode?: (node: ProjectNode) => boolean;
 }): ProjectTreeOrganizationController {
   const { showToast } = useToast();
   const sortModeRef = useRef(sortMode);
@@ -235,64 +189,7 @@ export function useProjectTreeOrganization({
   const groupLoadSequencesRef = useRef<Record<string, number>>({});
   const groupSaveChainsRef = useRef(new Map<string, Promise<void>>());
   const organizationRevisionRef = useRef(organizationRevision);
-  const collapseStorageRef = useRef<{ seededKeys: Set<string>; collapsed: Set<string> } | null>(null);
-  if (!collapseStorageRef.current) collapseStorageRef.current = readProjectTreeCollapseStorage();
-  const seededGroupKeysRef = useRef<Set<string>>(collapseStorageRef.current.seededKeys);
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(collapseStorageRef.current?.collapsed));
-  const collapsedGroupsRef = useRef(collapsedGroups);
-  collapsedGroupsRef.current = collapsedGroups;
-  const isActiveNodeRef = useRef(isActiveNode);
-  isActiveNodeRef.current = isActiveNode;
-
-  // Apply the default arrangement once per organization scope, when its groups
-  // first arrive. Groups holding the active session and the scope's most
-  // recently active group stay expanded; the rest start collapsed.
-  useEffect(() => {
-    let seeded = false;
-    for (const folder of tree) {
-      if (folder.kind !== "project" && folder.kind !== "global_folder") continue;
-      const key = projectTreeOrganizationKey(folder);
-      if (seededGroupKeysRef.current.has(key)) continue;
-      const groups = groupsByKey[key];
-      if (!groups?.length) continue;
-      seededGroupKeysRef.current.add(key);
-      seeded = true;
-      const kids = asArray(folder.children);
-      const activeNodes = isActiveNodeRef.current ? kids.filter((node) => isActiveNodeRef.current?.(node)) : [];
-      const keep = new Set(groups
-        .filter((group) => activeNodes.some((node) => projectTreeGroupContainsNode(group, node)))
-        .map((group) => group.id));
-      let recentID = "";
-      let recentActivity = -1;
-      for (const group of groups) {
-        const activity = kids.reduce((latest, node) => (
-          projectTreeGroupContainsNode(group, node) ? Math.max(latest, node.lastActivityAt ?? 0) : latest
-        ), 0);
-        if (activity > recentActivity) {
-          recentActivity = activity;
-          recentID = group.id;
-        }
-      }
-      if (recentID) keep.add(recentID);
-      const next = new Set(collapsedGroupsRef.current);
-      for (const group of groups) {
-        if (!keep.has(group.id)) next.add(`${key}|${group.id}`);
-      }
-      collapsedGroupsRef.current = next;
-      setCollapsedGroups(next);
-    }
-    if (seeded) persistProjectTreeCollapse(seededGroupKeysRef.current, collapsedGroupsRef.current);
-  }, [groupsByKey, tree]);
-
-  const forgetCollapsedGroup = useCallback((key: string, id: string) => {
-    const collapseKey = `${key}|${id}`;
-    if (!collapsedGroupsRef.current.has(collapseKey)) return;
-    const next = new Set(collapsedGroupsRef.current);
-    next.delete(collapseKey);
-    collapsedGroupsRef.current = next;
-    setCollapsedGroups(next);
-    persistProjectTreeCollapse(seededGroupKeysRef.current, next);
-  }, []);
+  const [collapsedGroups, setCollapsedGroups] = useState(new Set<string>());
 
   useEffect(() => {
     mountedRef.current = true;
@@ -472,24 +369,19 @@ export function useProjectTreeOrganization({
     groupsFor(folder) { return groupsByKey[projectTreeOrganizationKey(folder)] ?? []; },
     groupCollapsed(key, id) { return collapsedGroups.has(`${key}|${id}`); },
     toggleGroup(key, id) {
-      const collapseKey = `${key}|${id}`;
-      const next = new Set(collapsedGroupsRef.current);
-      if (next.has(collapseKey)) next.delete(collapseKey); else next.add(collapseKey);
-      collapsedGroupsRef.current = next;
-      setCollapsedGroups(next);
-      persistProjectTreeCollapse(seededGroupKeysRef.current, next);
+      setCollapsedGroups((current) => {
+        const next = new Set(current), collapseKey = `${key}|${id}`;
+        if (next.has(collapseKey)) next.delete(collapseKey); else next.add(collapseKey);
+        return next;
+      });
     },
     renameGroup(key, id, title) {
       const trimmed = title.trim();
-      if (!trimmed) {
-        forgetGroupWindow(key, id);
-        forgetCollapsedGroup(key, id);
-      }
+      if (!trimmed) forgetGroupWindow(key, id);
       mutateGroups(key, (groups) => trimmed ? groups.map((group) => group.id === id ? { ...group, title: trimmed } : group) : groups.filter((group) => group.id !== id), { kind: trimmed ? "rename-group" : "delete-group", groupId: id, title: trimmed });
     },
     deleteGroup(key, id) {
       forgetGroupWindow(key, id);
-      forgetCollapsedGroup(key, id);
       mutateGroups(key, (groups) => groups.filter((group) => group.id !== id), { kind: "delete-group", groupId: id });
     },
     canDropTopicInto(key) {
@@ -575,7 +467,7 @@ export function ProjectTreeGroupRows({
     }
   }, [expandedGroupIDs, onEnsureList, queryActive, remote, visible]);
 
-  const renderWindowControls = (groupID: string, label: string, loadedCount: number, hasHiddenLoadedRows: boolean, hiddenCount: number) => {
+  const renderWindowControls = (groupID: string, label: string, loadedCount: number, hasHiddenLoadedRows: boolean) => {
     if (queryActive) return null;
     const state = listState(groupID);
     const showLoading = projectTreeListShowsLoading(state);
@@ -587,7 +479,7 @@ export function ProjectTreeGroupRows({
       </button> : null}
       {showLoading ? <span className="project-tree__topic-window-status">{t("projectTree.loadingMore")}</span> : null}
       {!showLoading && !state?.error && canExpand ? <button type="button" className="project-tree__topic-window-toggle" disabled={state?.loading} aria-label={t("projectTree.expandGroup", { name: label })} onClick={() => onExpandList(groupID, loadedCount)}>
-        {hiddenCount > 0 ? t("projectTree.expandDisplay", { n: hiddenCount }) : t("projectTree.expandDisplayPlain")}
+        {t("projectTree.expandDisplay")}
       </button> : null}
     </div>;
   };
@@ -611,7 +503,7 @@ export function ProjectTreeGroupRows({
   const ungrouped = children.filter((child) => !groups.some((group) => projectTreeGroupContainsNode(group, child)));
   const ungroupedRows = scopedRows("", ungrouped);
   const ungroupedProjection = queryActive
-    ? { rows: ungroupedRows, hasHiddenLoadedRows: false, hiddenCount: 0 }
+    ? { rows: ungroupedRows, hasHiddenLoadedRows: false }
     : projectTreeWindowProjection(ungroupedRows, listLimit(""), isActive);
   const commitRename = (id: string) => {
     if (!groupDraft.trim()) onForgetList(id);
@@ -620,13 +512,13 @@ export function ProjectTreeGroupRows({
   };
   return <>
     {ungroupedProjection.rows.map((child) => renderNode(child, depth, section, visible))}
-    {renderWindowControls("", folder.label, ungroupedRows.length, ungroupedProjection.hasHiddenLoadedRows, ungroupedProjection.hiddenCount)}
+    {renderWindowControls("", folder.label, ungroupedRows.length, ungroupedProjection.hasHiddenLoadedRows)}
     {groups.map((group) => {
       const collapsed = queryActive ? false : organization.groupCollapsed(key, group.id);
       const members = children.filter((child) => projectTreeGroupContainsNode(group, child));
       const groupRows = scopedRows(group.id, members);
       const groupProjection = queryActive
-        ? { rows: groupRows, hasHiddenLoadedRows: false, hiddenCount: 0 }
+        ? { rows: groupRows, hasHiddenLoadedRows: false }
         : projectTreeWindowProjection(groupRows, listLimit(group.id), isActive);
       if (queryActive && groupRows.length === 0) return null;
       const canDrop = organization.canDropTopicInto(key);
@@ -685,7 +577,7 @@ export function ProjectTreeGroupRows({
         />}
         {!collapsed && <div className="project-tree__group-children">
           {groupProjection.rows.map((child) => renderNode(child, depth, section, visible))}
-          {renderWindowControls(group.id, group.title, groupRows.length, groupProjection.hasHiddenLoadedRows, groupProjection.hiddenCount)}
+          {renderWindowControls(group.id, group.title, groupRows.length, groupProjection.hasHiddenLoadedRows)}
         </div>}
       </div>;
     })}
